@@ -1,0 +1,28 @@
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+
+# Data
+*.csv
+*.json
+*.db
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Other
+*.swp
+*.swo
+*.bak
+*.orig
