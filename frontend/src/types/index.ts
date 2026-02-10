@@ -2,7 +2,7 @@
 
 export type SensorEventType =
   | 'equipment_detected'
-  | 'state_changed'
+  | 'tumbler_state_changed'
   | 'set_logged'
   | 'equipment_unknown';
 
@@ -26,13 +26,14 @@ export type UnknownEquipmentPayload = {
   detectedAt: string;
 };
 
-// ─── 사용자 상태 ──────────────────────────────────────────────────────────────
+// ─── 텀블러 상태 ──────────────────────────────────────────────────────────────
 
-export type UserState = 'moving' | 'exercising' | 'resting';
+// 텀블러 거치 후 운동 중/휴식은 센서로 구분 불가 → 이동 중 / 거치됨 2단계만 판별
+export type TumblerState = 'moving' | 'settled';
 
-export type UserStatePayload = {
-  state: UserState;
-  transitionedAt: string;
+export type TumblerStatePayload = {
+  state: TumblerState;
+  transitionedAt: string; // ISO 8601
 };
 
 // ─── 운동 로그 ────────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'rec
 
 export type WebSocketEvent =
   | { type: 'equipment_detected'; payload: EquipmentDetectedPayload }
-  | { type: 'state_changed'; payload: UserStatePayload }
+  | { type: 'tumbler_state_changed'; payload: TumblerStatePayload }
   | { type: 'set_logged'; payload: SetLogPayload }
   | { type: 'equipment_unknown'; payload: UnknownEquipmentPayload };
 
