@@ -5,17 +5,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
 
-# ── 상수 (notebooks/imu_state_dev.ipynb 임계값 탐색으로 확정) ────────────────
-# 슬라이딩 윈도우 크기: 50 Hz 기준 0.4 초
+# ── 상수 (notebooks/imu_state_dev.ipynb 그리드 탐색으로 확정) ───────────────
+# 슬라이딩 윈도우 크기 (샘플 수, 50 Hz 기준 0.4 s)
 WINDOW_SIZE = 20
-
-# 중력(1.0 g) 기준 accel 편차 이동 평균 임계값 (g 단위)
-# 이 값을 초과하면 텀블러가 이동 중으로 판단
-MOVE_ACCEL_THRESHOLD = 0.08
-
-# gyro 크기의 분산 임계값 ((rad/s)² 단위)
-# 이 값을 초과하면 텀블러가 이동 중으로 판단
-MOVE_GYRO_VAR = 0.05
+# |accel − 1.0 g| 이동 평균 임계값 (g)
+MOVE_ACCEL_THRESHOLD = 0.04
+# gyro 분산 임계값 ((rad/s)²) — 상세 근거: docs/imu_thresholds.md
+MOVE_GYRO_VAR = 0.40
 
 # ── 타입 정의 ─────────────────────────────────────────────────────────────────
 # 텀블러 2단계 상태
