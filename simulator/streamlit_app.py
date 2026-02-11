@@ -1,70 +1,74 @@
+import threading
+
 import streamlit as st
 
-# 페이지 기본 설정: 제목, 와이드 레이아웃
-st.set_page_config(
-    page_title="Gym Tracker Simulator",
-    layout="wide",
-)
+from imu_simulator import generate_imu
+from mag_simulator import EQUIPMENT_FINGERPRINTS, generate_mag
+from ws_emitter import start_stream
+
+# 백그라운드 스레드와 공유하는 파라미터 딕셔너리
+# st.session_state는 Streamlit 스레드 외부에서 접근 불가 → 일반 dict 사용
+_params: dict = {
+    "tumbler_state":      "이동 중",
+    "selected_equipment": "레그프레스",
+    "noise_level":        0.1,
+}
+
+st.set_page_config(page_title="Gym Tracker Simulator", layout="wide")
 
 # ── 세션 상태 초기화 ──────────────────────────────────────────────────────────
-# 앱이 처음 실행될 때 session_state에 기본값을 등록한다
 
-# 현재 선택된 기구 이름
 if "selected_equipment" not in st.session_state:
     st.session_state.selected_equipment = "레그프레스"
 
-# 텀블러 상태: "이동 중" or "거치됨"
-# (운동 중/휴식 구분은 텀블러 센서로 불가 → 2단계만 관리)
 if "tumbler_state" not in st.session_state:
     st.session_state.tumbler_state = "이동 중"
 
-# 노이즈 레벨: 0.0(노이즈 없음) ~ 1.0(최대 노이즈)
 if "noise_level" not in st.session_state:
     st.session_state.noise_level = 0.1
 
-# WebSocket 전송 활성 여부
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
+
+if "stop_event" not in st.session_state:
+    st.session_state.stop_event = None
+
+# ── 매 리런마다 _params 동기화 (메인 스레드 → 백그라운드 스레드에 전달) ────────
+_params["tumbler_state"]      = st.session_state.tumbler_state
+_params["selected_equipment"] = st.session_state.selected_equipment
+_params["noise_level"]        = st.session_state.noise_level
+
+# ── 스트림 종료 감지 ──────────────────────────────────────────────────────────
+# 백그라운드 스레드가 오류로 종료되었을 때 UI 상태를 동기화한다
+if st.session_state.streaming and st.session_state.stop_event is not None:
+    if st.session_state.stop_event.is_set():
+        st.session_state.streaming = False
+        st.session_state.stop_event = None
 
 # ── 헤더 ─────────────────────────────────────────────────────────────────────
 st.title("Hands-Free Gym Tracker — Sensor Simulator")
 st.caption("텀블러 탑재 지자기·IMU 센서 데이터를 시뮬레이션합니다.")
-
-# 구분선
 st.divider()
 
-# ── 레이아웃: 좌(컨트롤) / 우(상태 표시) ─────────────────────────────────────
 col_control, col_status = st.columns([1, 1], gap="large")
 
 # ── 좌측: 컨트롤 패널 ────────────────────────────────────────────────────────
 with col_control:
     st.subheader("컨트롤 패널")
 
-    # 기구 선택 드롭다운
-    EQUIPMENT_LIST = [
-        "레그프레스",
-        "랫풀다운",
-        "스미스머신",
-        "펙덱플라이",
-        "레그컬",
-        "레그익스텐션",
-    ]
     st.session_state.selected_equipment = st.selectbox(
         label="기구 선택",
-        options=EQUIPMENT_LIST,
-        index=EQUIPMENT_LIST.index(st.session_state.selected_equipment),
+        options=list(EQUIPMENT_FINGERPRINTS.keys()),
+        index=list(EQUIPMENT_FINGERPRINTS.keys()).index(st.session_state.selected_equipment),
         help="시뮬레이션할 헬스장 기구를 선택하세요.",
     )
 
-    st.write("")  # 간격
+    st.write("")
 
-    # 텀블러 상태 토글
-    # 주의: "운동 중"과 "휴식"은 텀블러가 정지 상태이므로 센서 값이 동일 → 구분 불가
     st.write("**텀블러 상태**")
     tumbler_col_a, tumbler_col_b = st.columns(2)
 
     with tumbler_col_a:
-        # "이동 중" 버튼: 클릭 시 tumbler_state를 "이동 중"으로 설정
         if st.button(
             "🚶 이동 중",
             use_container_width=True,
@@ -74,7 +78,6 @@ with col_control:
             st.rerun()
 
     with tumbler_col_b:
-        # "거치됨" 버튼: 클릭 시 tumbler_state를 "거치됨"으로 설정 (기구 점유 시작)
         if st.button(
             "📍 거치됨 (기구 점유 중)",
             use_container_width=True,
@@ -83,9 +86,8 @@ with col_control:
             st.session_state.tumbler_state = "거치됨"
             st.rerun()
 
-    st.write("")  # 간격
+    st.write("")
 
-    # 노이즈 레벨 슬라이더
     st.session_state.noise_level = st.slider(
         label="노이즈 레벨",
         min_value=0.0,
@@ -96,39 +98,67 @@ with col_control:
         help="0.0 = 노이즈 없음 / 1.0 = 최대 노이즈",
     )
 
-    st.write("")  # 간격
+    st.write("")
 
-    # WebSocket 전송 버튼 (데이터 생성 모듈 연결 전까지 비활성)
+    # ── WebSocket 전송 제어 ───────────────────────────────────────────────────
     st.write("**WebSocket 전송**")
-    st.info("데이터 생성·전송 기능은 추후 연결됩니다.", icon=None)
-    st.button("▶ 전송 시작", disabled=True, use_container_width=True)
 
-# ── 우측: 현재 세션 상태 표시 ─────────────────────────────────────────────────
+    if not st.session_state.streaming:
+        if st.button("▶ 전송 시작", use_container_width=True, type="primary"):
+            stop_event = threading.Event()
+
+            def get_reading() -> dict:
+                # st.session_state 대신 _params 사용 (스레드 안전)
+                imu = generate_imu(_params["tumbler_state"], _params["noise_level"])
+                mag = generate_mag(_params["selected_equipment"], _params["noise_level"])
+                return {**imu, **mag}
+
+            start_stream(
+                user_id="user-1",
+                get_reading=get_reading,
+                stop_event=stop_event,
+            )
+            st.session_state.stop_event = stop_event
+            st.session_state.streaming = True
+            st.rerun()
+    else:
+        if st.button("⏹ 전송 중지", use_container_width=True, type="secondary"):
+            if st.session_state.stop_event is not None:
+                st.session_state.stop_event.set()
+            st.session_state.streaming = False
+            st.session_state.stop_event = None
+            st.rerun()
+
+# ── 우측: 상태 표시 ───────────────────────────────────────────────────────────
 with col_status:
     st.subheader("현재 파라미터")
 
-    # 선택된 기구 표시
     st.metric(label="선택 기구", value=st.session_state.selected_equipment)
 
-    # 텀블러 상태 표시: 상태에 따라 색상 구분
     if st.session_state.tumbler_state == "거치됨":
         st.success("📍 텀블러 상태: **거치됨 (기구 점유 중)**")
     else:
         st.warning("🚶 텀블러 상태: **이동 중**")
 
-    # 노이즈 레벨 표시
-    st.metric(
-        label="노이즈 레벨",
-        value=f"{st.session_state.noise_level:.2f}",
-    )
+    st.metric(label="노이즈 레벨", value=f"{st.session_state.noise_level:.2f}")
 
     st.divider()
 
-    # 세션 상태 전체 덤프 (개발 확인용)
+    # 전송 상태 표시
+    if st.session_state.streaming:
+        st.success("🟢 전송 중 — ws://localhost:8000/ws/user-1")
+
+        # 현재 생성되는 센서값 미리보기
+        imu = generate_imu(st.session_state.tumbler_state, st.session_state.noise_level)
+        mag = generate_mag(st.session_state.selected_equipment, st.session_state.noise_level)
+        st.json({**imu, **mag})
+    else:
+        st.info("⚪ 전송 대기 중")
+
     with st.expander("session_state 전체 보기 (디버그)"):
         st.json({
             "selected_equipment": st.session_state.selected_equipment,
-            "tumbler_state": st.session_state.tumbler_state,
-            "noise_level": st.session_state.noise_level,
-            "streaming": st.session_state.streaming,
+            "tumbler_state":      st.session_state.tumbler_state,
+            "noise_level":        st.session_state.noise_level,
+            "streaming":          st.session_state.streaming,
         })
