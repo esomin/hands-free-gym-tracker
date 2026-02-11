@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import json
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from pipeline.imu_state import SensorReading, detect_tumbler_state, make_state_event
+from pipeline.mag_fingerprint import (
+    MIN_SETTLE_SAMPLES,
+    make_equipment_detected_event,
+    make_equipment_unknown_event,
+    match_from_samples,
+)
+from pipeline.noise_filter import filter_sensor
 from state.session_cache import session_cache
 
 
@@ -54,7 +62,6 @@ class ConnectionManager:
             try:
                 await ws.send_json(message)
             except Exception:
-                # 전송 실패 = 이미 끊어진 연결
                 dead.append(ws)
         for ws in dead:
             self.disconnect(user_id, ws)
@@ -63,7 +70,6 @@ class ConnectionManager:
         return len(self._connections.get(user_id, []))
 
 
-# 모듈 레벨 싱글턴 — main.py 에서 임포트하여 엔드포인트에 연결
 manager = ConnectionManager()
 
 
@@ -75,40 +81,31 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
 
     수신 메시지 형식 (시뮬레이터 → 백엔드):
     {
-        "accel_magnitude": 1.05,   # float, g 단위
-        "gyro_magnitude":  0.02,   # float, rad/s
-        "timestamp":       "..."   # ISO 8601, 생략 가능
+        "accel_magnitude": 1.05,
+        "gyro_magnitude":  0.02,
+        "mag_x": 30.5,   "mag_y": -15.2,   "mag_z": 45.1,  (생략 시 0.0)
+        "timestamp": "..."                                    (생략 시 서버 현재 시각)
     }
 
-    브로드캐스트 형식 (백엔드 → 프론트엔드, 상태 전이 시에만):
-    {
-        "type":    "tumbler_state_changed",
-        "payload": { "state": "settled", "transitioned_at": "..." },
-        "timestamp": "..."
-    }
-
-    ※ 현재 단계에서는 imu_state 만 파이프라인에 연결한다.
-      noise_filter, mag_fingerprint 는 이후 단계에서 추가된다.
+    파이프라인 순서:
+        noise_filter → imu_state → (settled 전이 시) mag_fingerprint
     """
     await manager.connect(user_id, ws)
     session = session_cache.get_or_create(user_id)
 
     try:
         while True:
-            # 시뮬레이터 또는 프론트엔드로부터 메시지 수신
             raw = await ws.receive_text()
 
-            # 프론트엔드가 보내는 ping 등 비-센서 메시지는 무시
             try:
                 data = json.loads(raw)
             except json.JSONDecodeError:
                 continue
 
-            # 센서 데이터 메시지 여부 판별 (accel_magnitude 키 존재 확인)
             if 'accel_magnitude' not in data or 'gyro_magnitude' not in data:
                 continue
 
-            # timestamp 파싱 — 없으면 현재 시각 사용
+            # timestamp 파싱
             ts_raw = data.get('timestamp')
             if ts_raw:
                 try:
@@ -118,24 +115,51 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             else:
                 ts = datetime.now(timezone.utc)
 
-            # SensorReading 생성 후 슬라이딩 윈도우에 추가
-            reading = SensorReading(
-                accel_magnitude=float(data['accel_magnitude']),
-                gyro_magnitude=float(data['gyro_magnitude']),
-                timestamp=ts,
+            # ── 1. 노이즈 필터 ────────────────────────────────────────────────
+            f_accel, f_gyro, f_mag_x, f_mag_y, f_mag_z = filter_sensor(
+                session.ema_state,
+                float(data['accel_magnitude']),
+                float(data['gyro_magnitude']),
+                float(data.get('mag_x', 0.0)),
+                float(data.get('mag_y', 0.0)),
+                float(data.get('mag_z', 0.0)),
             )
-            session.recent_sensor_window.append(reading)
+
+            # ── 2. 슬라이딩 윈도우 갱신 ──────────────────────────────────────
+            session.recent_sensor_window.append(
+                SensorReading(accel_magnitude=f_accel, gyro_magnitude=f_gyro, timestamp=ts)
+            )
+            session.recent_mag_window.append((f_mag_x, f_mag_y, f_mag_z))
             session_cache.touch(user_id)
 
-            # imu_state 파이프라인: 텀블러 상태 판별
+            # ── 3. IMU 텀블러 상태 판별 ───────────────────────────────────────
             prev_state = session.tumbler_state
             new_state = detect_tumbler_state(session.recent_sensor_window)
             session.tumbler_state = new_state
 
-            # 상태 전이가 발생한 경우에만 브로드캐스트
-            event = make_state_event(new_state, prev_state, timestamp=ts)
-            if event:
-                await manager.broadcast(user_id, event)
+            state_event = make_state_event(new_state, prev_state, timestamp=ts)
+            if state_event:
+                await manager.broadcast(user_id, state_event)
+
+            # ── 4. 지자기 지문 매칭 (이동→거치됨 전이 시에만) ────────────────
+            if new_state == 'settled' and prev_state == 'moving':
+                mag_samples = list(session.recent_mag_window)
+                if len(mag_samples) >= MIN_SETTLE_SAMPLES:
+                    matched, avg_vec = match_from_samples(mag_samples)
+                    if matched:
+                        session.current_equipment_id = matched.equipment_id
+                        equipment_event = make_equipment_detected_event(
+                            matched,
+                            confidence=1.0,
+                            timestamp=ts,
+                        )
+                    else:
+                        session.current_equipment_id = None
+                        equipment_event = make_equipment_unknown_event(
+                            raw_fingerprint_id=str(uuid.uuid4()),
+                            timestamp=ts,
+                        )
+                    await manager.broadcast(user_id, equipment_event)
 
     except WebSocketDisconnect:
         pass

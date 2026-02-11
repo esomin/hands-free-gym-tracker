@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 
 from pipeline.imu_state import WINDOW_SIZE, SensorReading, TumblerState
 
-# 서버 메모리에 유지할 최대 세션 수
-# 초과 시 가장 오래된 비활성 세션이 LRU 정책으로 자동 제거된다
 MAX_SESSIONS = 500
+
+# 거치됨 전이 후 지자기 지문 채취용 윈도우 크기
+MAG_WINDOW_SIZE = 10
 
 
 # ── 세션 상태 ─────────────────────────────────────────────────────────────────
@@ -26,8 +27,13 @@ class SessionState:
     tumbler_state: TumblerState
 
     # 최근 N개 센서 값 슬라이딩 윈도우 (deque — O(1) 추가/제거)
-    # maxlen=WINDOW_SIZE 로 자동 크기 유지
     recent_sensor_window: deque[SensorReading]
+
+    # EMA 필터 상태 (채널명 → 마지막 평활값)
+    ema_state: dict[str, float]
+
+    # 거치됨 전이 시 지자기 지문 채취용 최근 샘플 (mag_x, mag_y, mag_z)
+    recent_mag_window: deque[tuple[float, float, float]]
 
     # 세션 시작 시각
     session_started_at: datetime
@@ -112,8 +118,9 @@ class SessionCache:
             current_equipment_id=None,
             # 초기 상태는 'moving' — 거치됨 감지 전까지 이동 중으로 간주
             tumbler_state='moving',
-            # deque maxlen 으로 크기 자동 유지, 추가/제거 O(1)
             recent_sensor_window=deque(maxlen=WINDOW_SIZE),
+            ema_state={},
+            recent_mag_window=deque(maxlen=MAG_WINDOW_SIZE),
             session_started_at=now,
             last_active_at=now,
         )
