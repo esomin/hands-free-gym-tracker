@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.mongo_client import create_indexes
 from routers import log, routine
-from websocket.handler import handle_sensor_stream
+from websocket.handler import handle_sensor_stream, manager
 
 app = FastAPI(title="Hands-Free Gym Tracker API")
 
@@ -24,8 +26,10 @@ app.include_router(routine.router, prefix="/api")
 
 @app.on_event("startup")
 async def startup():
-    # 인덱스가 없으면 생성 (이미 있으면 무시)
-    await create_indexes()
+    try:
+        await create_indexes()
+    except Exception as e:
+        print(f"[startup] MongoDB 연결 실패 (WebSocket은 정상 동작): {e}")
 
 
 # ── WebSocket 엔드포인트 ──────────────────────────────────────────────────────
@@ -46,3 +50,34 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# ── 개발 테스트용 ─────────────────────────────────────────────────────────────
+# 실제 파이프라인 없이 이벤트 브로드캐스트를 수동으로 트리거한다
+
+@app.post("/dev/trigger/{user_id}/equipment-unknown")
+async def trigger_equipment_unknown(user_id: str):
+    """미등록 기구 감지 이벤트를 강제 브로드캐스트 — 모달 팝업 확인용"""
+    await manager.broadcast(user_id, {
+        "type": "equipment_unknown",
+        "payload": {
+            "rawFingerprintId": "test-fingerprint-001",
+            "detectedAt": datetime.now(timezone.utc).isoformat(),
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"triggered": True}
+
+
+@app.post("/dev/trigger/{user_id}/tumbler-state")
+async def trigger_tumbler_state(user_id: str, state: str = "settled"):
+    """텀블러 상태 전이 이벤트를 강제 브로드캐스트 — 뱃지 변경 확인용"""
+    await manager.broadcast(user_id, {
+        "type": "tumbler_state_changed",
+        "payload": {
+            "state": state,
+            "transitioned_at": datetime.now(timezone.utc).isoformat(),
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"triggered": True, "state": state}
