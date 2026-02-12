@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 
+import { Dashboard } from './components/Dashboard';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
 import { SmartDefault } from './components/SmartDefault';
 import type { SetEntry } from './components/SmartDefault';
+import { useDashboard } from './hooks/useDashboard';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useWorkoutLog } from './hooks/useWorkoutLog';
 import type {
@@ -18,9 +20,17 @@ import type {
 const WS_URL = 'ws://localhost:8000/ws/user-1';
 const USER_ID = 'user-1';
 
+// TODO: UI 확인용 — 실 데이터 연동 후 제거
+// const MOCK_ENTRIES = [
+//   { equipmentName: '레그프레스', setNumber: 1, weight: 80, reps: 12, loggedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString() },
+//   { equipmentName: '체스트프레스', setNumber: 2, weight: 65, reps: 10, loggedAt: new Date(Date.now() - 1000 * 60 * 17).toISOString() },
+//   { equipmentName: '숄더프레스', setNumber: 1, weight: 40, reps: 15, loggedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
+// ];
+
 function App() {
   const { lastEvent } = useWebSocket(WS_URL);
   const { smartDefault, isLoading } = useWorkoutLog(lastEvent, USER_ID);
+  const { entries, isLoading: isDashboardLoading } = useDashboard(lastEvent, USER_ID);
 
   const [equipment, setEquipment] = useState<EquipmentDetectedPayload | null>(null);
   const [tumblerState, setTumblerState] = useState<TumblerStatePayload | null>(null);
@@ -61,7 +71,8 @@ function App() {
             />
           </div>
           <div className="w-full md:w-2/3">
-            {/* Dashboard — Task 11에서 구현 */}
+            {/* <Dashboard entries={MOCK_ENTRIES} isLoading={false} /> */}
+            <Dashboard entries={entries} isLoading={isDashboardLoading} />
           </div>
         </div>
 

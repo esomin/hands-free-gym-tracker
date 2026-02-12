@@ -60,6 +60,16 @@ export type WorkoutLogEntry = {
   startedAt: string;
 };
 
+// ─── 대시보드 ─────────────────────────────────────────────────────────────────
+
+export type DashboardEntry = {
+  equipmentName: string;
+  setNumber:     number;
+  weight:        number;
+  reps:          number;
+  loggedAt:      string;
+};
+
 // ─── 스마트 디폴트 ────────────────────────────────────────────────────────────
 
 export type SmartDefaultData = {
