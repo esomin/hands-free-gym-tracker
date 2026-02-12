@@ -40,9 +40,10 @@ def detect_tumbler_state(sensor_window: deque[SensorReading]) -> TumblerState:
         |accel − 1.0 g| 이동 평균 > MOVE_ACCEL_THRESHOLD
         gyro 분산              > MOVE_GYRO_VAR
 
-    윈도우가 비어 있으면 보수적으로 'moving' 반환.
+    윈도우가 가득 차지 않았으면 보수적으로 'moving' 반환.
+    (초기 샘플 수가 적을 때 임계값 주변 노이즈로 인한 spurious 전이 방지)
     """
-    if len(sensor_window) == 0:
+    if len(sensor_window) < WINDOW_SIZE:
         return 'moving'
 
     readings = list(sensor_window)

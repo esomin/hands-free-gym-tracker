@@ -4,15 +4,8 @@ import streamlit as st
 
 from imu_simulator import generate_imu
 from mag_simulator import EQUIPMENT_FINGERPRINTS, generate_mag
+from shared_state import params as _params  # 모듈 캐시로 단일 인스턴스 보장
 from ws_emitter import start_stream
-
-# 백그라운드 스레드와 공유하는 파라미터 딕셔너리
-# st.session_state는 Streamlit 스레드 외부에서 접근 불가 → 일반 dict 사용
-_params: dict = {
-    "tumbler_state":      "이동 중",
-    "selected_equipment": "레그프레스",
-    "noise_level":        0.1,
-}
 
 st.set_page_config(page_title="Gym Tracker Simulator", layout="wide")
 
@@ -34,6 +27,8 @@ if "stop_event" not in st.session_state:
     st.session_state.stop_event = None
 
 # ── 매 리런마다 _params 동기화 (메인 스레드 → 백그라운드 스레드에 전달) ────────
+# _params는 shared_state 모듈의 dict 객체를 참조하므로,
+# in-place 업데이트가 백그라운드 스레드에 즉시 반영된다.
 _params["tumbler_state"]      = st.session_state.tumbler_state
 _params["selected_equipment"] = st.session_state.selected_equipment
 _params["noise_level"]        = st.session_state.noise_level
@@ -108,7 +103,7 @@ with col_control:
             stop_event = threading.Event()
 
             def get_reading() -> dict:
-                # st.session_state 대신 _params 사용 (스레드 안전)
+                # _params는 shared_state.params를 참조 → 항상 최신 값 반영
                 imu = generate_imu(_params["tumbler_state"], _params["noise_level"])
                 mag = generate_mag(_params["selected_equipment"], _params["noise_level"])
                 return {**imu, **mag}

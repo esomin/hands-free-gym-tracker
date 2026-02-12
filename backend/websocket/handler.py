@@ -92,6 +92,7 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
     """
     await manager.connect(user_id, ws)
     session = session_cache.get_or_create(user_id)
+    _diag_count = 0  # 진단 로그용 샘플 카운터
 
     try:
         while True:
@@ -137,13 +138,33 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             new_state = detect_tumbler_state(session.recent_sensor_window)
             session.tumbler_state = new_state
 
+            if new_state != prev_state:
+                print(f'[handler] {user_id} 상태 전이: {prev_state} → {new_state} '
+                      f'(window={len(session.recent_sensor_window)}, '
+                      f'accel={f_accel:.3f}, gyro={f_gyro:.3f})')
+
+            # ── 진단: 50샘플(약 1초)마다 감지값 출력 ─────────────────────────
+            _diag_count += 1
+            if _diag_count % 50 == 0:
+                w = list(session.recent_sensor_window)
+                if w:
+                    _accel_dev = sum(abs(r.accel_magnitude - 1.0) for r in w) / len(w)
+                    _gyro_vals = [r.gyro_magnitude for r in w]
+                    _gyro_mean = sum(_gyro_vals) / len(_gyro_vals)
+                    _gyro_var  = sum((v - _gyro_mean) ** 2 for v in _gyro_vals) / len(_gyro_vals)
+                    print(f'[diag] {user_id} window={len(w)} state={session.tumbler_state} '
+                          f'accel_dev={_accel_dev:.4f}(th=0.04) gyro_var={_gyro_var:.4f}(th=0.40)')
+
             state_event = make_state_event(new_state, prev_state, timestamp=ts)
             if state_event:
+                print(f'[handler] 브로드캐스트: {state_event["type"]} → {state_event["payload"]}')
                 await manager.broadcast(user_id, state_event)
 
             # ── 4. 지자기 지문 매칭 (이동→거치됨 전이 시에만) ────────────────
             if new_state == 'settled' and prev_state == 'moving':
                 mag_samples = list(session.recent_mag_window)
+                print(f'[handler] mag_fingerprint 시도: mag_samples={len(mag_samples)} '
+                      f'(필요: {MIN_SETTLE_SAMPLES})')
                 if len(mag_samples) >= MIN_SETTLE_SAMPLES:
                     matched, avg_vec = match_from_samples(mag_samples)
                     if matched:
@@ -159,6 +180,7 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                             raw_fingerprint_id=str(uuid.uuid4()),
                             timestamp=ts,
                         )
+                    print(f'[handler] 브로드캐스트: {equipment_event["type"]}')
                     await manager.broadcast(user_id, equipment_event)
 
     except WebSocketDisconnect:
