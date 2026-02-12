@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 
+import { notifications } from '@mantine/notifications';
+
 import { fetchTodayLogs } from '../api/client';
-import type { DashboardEntry, WebSocketEvent } from '../types';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
+import type { DashboardEntry } from '../types';
 
 export type { DashboardEntry };
 
@@ -10,10 +13,8 @@ type UseDashboardReturn = {
   isLoading: boolean;
 };
 
-export function useDashboard(
-  lastEvent: WebSocketEvent | null,
-  userId: string,
-): UseDashboardReturn {
+export function useDashboard(userId: string): UseDashboardReturn {
+  const { lastEvent } = useWebSocketContext();
   const [entries,   setEntries]   = useState<DashboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,7 +22,13 @@ export function useDashboard(
   useEffect(() => {
     fetchTodayLogs(userId)
       .then(setEntries)
-      .catch(() => {})
+      .catch((e: Error) => {
+        notifications.show({
+          color:   'red',
+          title:   '운동 기록 조회 실패',
+          message: e.message,
+        });
+      })
       .finally(() => setIsLoading(false));
   }, [userId]);
 
