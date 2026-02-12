@@ -81,3 +81,19 @@ async def trigger_tumbler_state(user_id: str, state: str = "settled"):
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     return {"triggered": True, "state": state}
+
+
+@app.post("/dev/trigger/{user_id}/equipment-detected")
+async def trigger_equipment_detected(user_id: str):
+    """기구 인식 이벤트를 강제 브로드캐스트 — SmartDefault 카드 렌더링 확인용"""
+    await manager.broadcast(user_id, {
+        "type": "equipment_detected",
+        "payload": {
+            "equipmentId": "test-equipment-001",
+            "equipmentName": "레그프레스",
+            "confidence": 0.99,
+            "detectedAt": datetime.now(timezone.utc).isoformat(),
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"triggered": True}
