@@ -6,6 +6,7 @@ import { Notifications } from '@mantine/notifications';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
 import { SmartDefault } from './components/SmartDefault';
+import type { SetEntry } from './components/SmartDefault';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useWorkoutLog } from './hooks/useWorkoutLog';
 import type {
@@ -39,9 +40,9 @@ function App() {
     setUnknownFingerprint(null);
   }
 
-  function handleSmartDefaultConfirm(weight: number, reps: number, sets: number) {
+  function handleSmartDefaultConfirm(sets: SetEntry[]) {
     // TODO: 운동 로그 세션 시작 및 목표값 저장
-    console.log('목표 확정:', { weight, reps, sets });
+    console.log('목표 확정:', sets);
   }
 
   return (

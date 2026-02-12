@@ -1,53 +1,50 @@
 import { useState, useEffect } from 'react';
 
-import { Button, Card, NumberInput, Skeleton, Text } from '@mantine/core';
+import { ActionIcon, Button, Card, NumberInput, Skeleton, Text } from '@mantine/core';
 
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import type { SmartDefaultData } from '../types';
 
+export type SetEntry = { weight: number; reps: number };
+
 type SmartDefaultProps = {
   data: SmartDefaultData | null;
   isLoading: boolean;
-  onConfirm: (weight: number, reps: number, sets: number) => void;
+  onConfirm: (sets: SetEntry[]) => void;
 };
 
-type FormErrors = {
-  weight?: string;
-  reps?: string;
-  sets?: string;
-};
+type RowErrors = { weight?: string; reps?: string };
 
-function validate(weight: number, reps: number, sets: number): FormErrors {
-  const errors: FormErrors = {};
-  if (weight < 0)     errors.weight = ERROR_MESSAGES.weight.min;
-  if (weight > 999.9) errors.weight = ERROR_MESSAGES.weight.max;
-  if (reps < 1)       errors.reps   = ERROR_MESSAGES.reps.min;
-  if (reps > 999)     errors.reps   = ERROR_MESSAGES.reps.max;
-  if (sets < 1)       errors.sets   = ERROR_MESSAGES.sets.min;
+function validateRow(entry: SetEntry): RowErrors {
+  const errors: RowErrors = {};
+  if (entry.weight < 0) errors.weight = ERROR_MESSAGES.weight.min;
+  if (entry.weight > 999.9) errors.weight = ERROR_MESSAGES.weight.max;
+  if (entry.reps < 1) errors.reps = ERROR_MESSAGES.reps.min;
+  if (entry.reps > 999) errors.reps = ERROR_MESSAGES.reps.max;
   return errors;
 }
 
 export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) {
-  const [weight, setWeight] = useState(0);
-  const [reps,   setReps]   = useState(0);
-  const [sets,   setSets]   = useState(1);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [sets, setSets] = useState<SetEntry[]>([{ weight: 0, reps: 0 }]);
+  const [errors, setErrors] = useState<RowErrors[]>([{}]);
 
-  // data가 바뀌면 입력값을 제안값으로 초기화
+  // data가 바뀌면 제안값으로 세트 목록 초기화
   useEffect(() => {
     if (!data) return;
-    setWeight(data.suggestedWeight);
-    setReps(data.suggestedReps);
-    setSets(data.suggestedSets);
-    setErrors({});
+    const initialSets = Array.from({ length: data.suggestedSets }, () => ({
+      weight: data.suggestedWeight,
+      reps: data.suggestedReps,
+    }));
+    setSets(initialSets);
+    setErrors(initialSets.map(() => ({})));
   }, [data]);
 
   if (isLoading) {
     return (
       <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3">
         <Skeleton height={16} width="40%" mb="sm" />
-        <Skeleton height={36} mb="sm" />
-        <Skeleton height={36} mb="sm" />
+        <Skeleton height={36} mb="xs" />
+        <Skeleton height={36} mb="xs" />
         <Skeleton height={36} />
       </Card>
     );
@@ -55,13 +52,33 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
 
   if (!data) return null;
 
+  function updateSet(index: number, field: keyof SetEntry, value: number) {
+    setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+    setErrors((prev) =>
+      prev.map((e, i) => (i === index ? { ...e, [field]: undefined } : e)),
+    );
+  }
+
+  function addSet() {
+    const last = sets[sets.length - 1] ?? { weight: 0, reps: 0 };
+    setSets((prev) => [...prev, { ...last }]);
+    setErrors((prev) => [...prev, {}]);
+  }
+
+  function removeSet(index: number) {
+    if (sets.length === 1) return;
+    setSets((prev) => prev.filter((_, i) => i !== index));
+    setErrors((prev) => prev.filter((_, i) => i !== index));
+  }
+
   function handleConfirm() {
-    const errs = validate(weight, reps, sets);
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
+    const newErrors = sets.map(validateRow);
+    const hasError = newErrors.some((e) => Object.keys(e).length > 0);
+    if (hasError) {
+      setErrors(newErrors);
       return;
     }
-    onConfirm(weight, reps, sets);
+    onConfirm(sets);
   }
 
   const isNew = data.basedOnDate === null;
@@ -72,7 +89,7 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
 
       {isNew && (
         <Text size="xs" c="blue" mb="sm">
-          처음 사용하는 기구입니다. 목표 무게와 횟수를 입력하세요.
+          처음 사용하는 기구입니다. 세트별 목표 무게와 횟수를 입력하세요.
         </Text>
       )}
       {!isNew && data.basedOnDate && (
@@ -81,35 +98,53 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
         </Text>
       )}
 
-      <NumberInput
-        label="무게 (kg)"
-        value={weight}
-        onChange={(v) => { setWeight(Number(v)); setErrors((e) => ({ ...e, weight: undefined })); }}
-        min={0}
-        max={999.9}
-        step={2.5}
-        decimalScale={1}
-        error={errors.weight}
-        mb="xs"
-      />
-      <NumberInput
-        label="횟수"
-        value={reps}
-        onChange={(v) => { setReps(Number(v)); setErrors((e) => ({ ...e, reps: undefined })); }}
-        min={1}
-        max={999}
-        error={errors.reps}
-        mb="xs"
-      />
-      <NumberInput
-        label="세트 수"
-        value={sets}
-        onChange={(v) => { setSets(Number(v)); setErrors((e) => ({ ...e, sets: undefined })); }}
-        min={1}
-        max={99}
-        error={errors.sets}
-        mb="md"
-      />
+      {/* 헤더 */}
+      <div className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-x-2! mb-1!">
+        <Text size="xs" c="dimmed" fw={500} className="text-center">세트</Text>
+        <Text size="xs" c="dimmed" fw={500}>무게 (kg)</Text>
+        <Text size="xs" c="dimmed" fw={500}>횟수</Text>
+        <div />
+      </div>
+
+      {/* 세트 행 목록 */}
+      {sets.map((set, i) => (
+        <div key={i} className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-x-2 items-start mb-2!">
+          <Text size="sm" c="dimmed" className="pt-2 text-center">{i + 1}</Text>
+          <NumberInput
+            value={set.weight}
+            onChange={(v) => updateSet(i, 'weight', Number(v))}
+            min={0}
+            max={999.9}
+            step={2.5}
+            decimalScale={1}
+            error={errors[i]?.weight}
+            aria-label={`${i + 1}세트 무게`}
+          // style={{ maxWidth: '20rem' }}
+          />
+          <NumberInput
+            value={set.reps}
+            onChange={(v) => updateSet(i, 'reps', Number(v))}
+            min={1}
+            max={999}
+            error={errors[i]?.reps}
+            aria-label={`${i + 1}세트 횟수`}
+          />
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            onClick={() => removeSet(i)}
+            disabled={sets.length === 1}
+            className="mt-1"
+            aria-label={`${i + 1}세트 삭제`}
+          >
+            ×
+          </ActionIcon>
+        </div>
+      ))}
+
+      <Button variant="subtle" size="xs" onClick={addSet} mb="md" fullWidth>
+        + 세트 추가
+      </Button>
 
       <Button onClick={handleConfirm} fullWidth>
         확인

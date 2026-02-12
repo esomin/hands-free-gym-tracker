@@ -1,6 +1,11 @@
+/* 1. Mantine 스타일 임포트 */
 @import "@mantine/core/styles.css";
-@import "@mantine/notifications/styles.css";
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* 레이어 순서 설정하여 tailwind가 mantine을 덮어쓰도록 설정 */
+@layer mantine, tailwind;
+
+@layer mantine {
+    @import "@mantine/core/styles.css";
+    @import "@mantine/notifications/styles.css";
+}
