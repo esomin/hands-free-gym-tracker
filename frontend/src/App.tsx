@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { Badge } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 
-import { registerEquipment } from './api/client';
+import { createWorkoutLog, registerEquipment } from './api/client';
+import { ERROR_MESSAGES } from './constants/errorMessages';
 import { Dashboard } from './components/Dashboard';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
@@ -49,9 +51,16 @@ function App() {
     setUnknownFingerprint(null);
   }
 
-  function handleSmartDefaultConfirm(sets: SetEntry[]) {
-    // TODO: 운동 로그 세션 시작 및 목표값 저장
-    console.log('목표 확정:', sets);
+  async function handleSmartDefaultConfirm(sets: SetEntry[]) {
+    if (!equipment) return;
+    try {
+      await createWorkoutLog(USER_ID, equipment.equipmentId, equipment.equipmentName, sets);
+    } catch (err) {
+      notifications.show({
+        color: 'red',
+        message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
+      });
+    }
   }
 
   const badge = STATUS_BADGE[status];

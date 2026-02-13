@@ -43,6 +43,26 @@ export async function registerEquipment(
 
 // ── 로그 API ──────────────────────────────────────────────────────────────────
 
+export async function createWorkoutLog(
+  userId: string,
+  equipmentId: string,
+  equipmentName: string,
+  sets: { weight: number; reps: number }[],
+): Promise<string> {
+  const data = await apiFetch<{ id: string }>('/api/logs/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id:        userId,
+      equipment_id:   equipmentId,
+      equipment_name: equipmentName,
+      sets: sets.map((s, i) => ({ set_number: i + 1, weight: s.weight, reps: s.reps })),
+    }),
+  });
+  return data.id;
+}
+
+
 type LogSetResponse = {
   set_number: number;
   weight:     number;
