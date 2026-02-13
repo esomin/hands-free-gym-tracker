@@ -30,8 +30,8 @@ const STATUS_BADGE: Record<string, { color: string; label: string }> = {
 
 function App() {
   const { lastEvent, status } = useWebSocketContext();
-  const { smartDefault, isLoading } = useWorkoutLog(USER_ID);
-  const { entries, isLoading: isDashboardLoading } = useDashboard(USER_ID);
+  const { smartDefault, isLoading, fetchForEquipment } = useWorkoutLog(USER_ID);
+  const { entries, isLoading: isDashboardLoading, refetch } = useDashboard(USER_ID);
 
   const [equipment, setEquipment] = useState<EquipmentDetectedPayload | null>(null);
   const [tumblerState, setTumblerState] = useState<TumblerStatePayload | null>(null);
@@ -49,12 +49,14 @@ function App() {
     const registered = await registerEquipment(USER_ID, equipmentName);
     setEquipment(registered);
     setUnknownFingerprint(null);
+    fetchForEquipment(registered.equipmentId);
   }
 
   async function handleSmartDefaultConfirm(sets: SetEntry[]) {
     if (!equipment) return;
     try {
       await createWorkoutLog(USER_ID, equipment.equipmentId, equipment.equipmentName, sets);
+      refetch();
     } catch (err) {
       notifications.show({
         color: 'red',

@@ -11,15 +11,18 @@ export type { DashboardEntry };
 type UseDashboardReturn = {
   entries:   DashboardEntry[];
   isLoading: boolean;
+  refetch:   () => void;
 };
 
 export function useDashboard(userId: string): UseDashboardReturn {
   const { lastEvent } = useWebSocketContext();
   const [entries,   setEntries]   = useState<DashboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchTick, setFetchTick] = useState(0);
 
-  // 마운트 시 오늘의 로그 조회
+  // 마운트 시 및 refetch 호출 시 오늘의 로그 조회
   useEffect(() => {
+    setIsLoading(true);
     fetchTodayLogs(userId)
       .then(setEntries)
       .catch((e: Error) => {
@@ -30,7 +33,11 @@ export function useDashboard(userId: string): UseDashboardReturn {
         });
       })
       .finally(() => setIsLoading(false));
-  }, [userId]);
+  }, [userId, fetchTick]);
+
+  function refetch() {
+    setFetchTick((n) => n + 1);
+  }
 
   // set_logged 이벤트 수신 시 목록 상단에 삽입
   useEffect(() => {
@@ -48,5 +55,5 @@ export function useDashboard(userId: string): UseDashboardReturn {
     ]);
   }, [lastEvent]);
 
-  return { entries, isLoading };
+  return { entries, isLoading, refetch };
 }

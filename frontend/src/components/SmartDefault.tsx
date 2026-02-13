@@ -10,7 +10,7 @@ export type SetEntry = { weight: number; reps: number };
 type SmartDefaultProps = {
   data: SmartDefaultData | null;
   isLoading: boolean;
-  onConfirm: (sets: SetEntry[]) => void;
+  onConfirm: (sets: SetEntry[]) => Promise<void>;
 };
 
 type RowErrors = { weight?: string; reps?: string };
@@ -27,13 +27,15 @@ function validateRow(entry: SetEntry): RowErrors {
 export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) {
   const [sets, setSets] = useState<SetEntry[]>([{ weight: 0, reps: 0 }]);
   const [errors, setErrors] = useState<RowErrors[]>([{}]);
+  const [submitting, setSubmitting] = useState(false);
 
   // data가 바뀌면 제안값으로 세트 목록 초기화
   useEffect(() => {
     if (!data) return;
+    const isNew = data.basedOnDate === null;
     const initialSets = Array.from({ length: data.suggestedSets }, () => ({
-      weight: data.suggestedWeight,
-      reps: data.suggestedReps,
+      weight: isNew ? 15 : data.suggestedWeight,
+      reps:   isNew ? 12 : data.suggestedReps,
     }));
     setSets(initialSets);
     setErrors(initialSets.map(() => ({})));
@@ -71,14 +73,19 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
     setErrors((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     const newErrors = sets.map(validateRow);
     const hasError = newErrors.some((e) => Object.keys(e).length > 0);
     if (hasError) {
       setErrors(newErrors);
       return;
     }
-    onConfirm(sets);
+    setSubmitting(true);
+    try {
+      await onConfirm(sets);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const isNew = data.basedOnDate === null;
@@ -146,7 +153,7 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
         + 세트 추가
       </Button>
 
-      <Button onClick={handleConfirm} fullWidth>
+      <Button onClick={handleConfirm} fullWidth loading={submitting} disabled={submitting}>
         확인
       </Button>
     </Card>

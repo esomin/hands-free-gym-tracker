@@ -7,8 +7,9 @@ import { useWebSocketContext } from '../contexts/WebSocketContext';
 import type { SmartDefaultData } from '../types';
 
 type UseWorkoutLogReturn = {
-  smartDefault: SmartDefaultData | null;
-  isLoading:    boolean;
+  smartDefault:       SmartDefaultData | null;
+  isLoading:          boolean;
+  fetchForEquipment:  (equipmentId: string) => void;
 };
 
 export function useWorkoutLog(userId: string): UseWorkoutLogReturn {
@@ -16,12 +17,8 @@ export function useWorkoutLog(userId: string): UseWorkoutLogReturn {
   const [smartDefault, setSmartDefault] = useState<SmartDefaultData | null>(null);
   const [isLoading,    setIsLoading]    = useState(false);
 
-  useEffect(() => {
-    if (lastEvent?.type !== 'equipment_detected') return;
-
-    const { equipmentId } = lastEvent.payload;
+  function fetchForEquipment(equipmentId: string) {
     setIsLoading(true);
-
     fetchSmartDefault(userId, equipmentId)
       .then(setSmartDefault)
       .catch((e: Error) => {
@@ -32,7 +29,12 @@ export function useWorkoutLog(userId: string): UseWorkoutLogReturn {
         });
       })
       .finally(() => setIsLoading(false));
+  }
+
+  useEffect(() => {
+    if (lastEvent?.type !== 'equipment_detected') return;
+    fetchForEquipment(lastEvent.payload.equipmentId);
   }, [lastEvent, userId]);
 
-  return { smartDefault, isLoading };
+  return { smartDefault, isLoading, fetchForEquipment };
 }
