@@ -176,6 +176,8 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                         )
                     else:
                         session.current_equipment_id = None
+                        # 등록 API 호출 시 사용할 지자기 평균 벡터를 세션에 임시 저장
+                        session.pending_mag_vector = avg_vec
                         equipment_event = make_equipment_unknown_event(
                             raw_fingerprint_id=str(uuid.uuid4()),
                             timestamp=ts,

@@ -1,12 +1,12 @@
 import { ERROR_MESSAGES } from '../constants/errorMessages';
-import type { DashboardEntry, SmartDefaultData } from '../types';
+import type { DashboardEntry, EquipmentDetectedPayload, SmartDefaultData } from '../types';
 
 const BASE_URL = 'http://localhost:8000';
 
-async function apiFetch<T>(path: string): Promise<T> {
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`);
+    res = await fetch(`${BASE_URL}${path}`, init);
   } catch {
     throw new Error(ERROR_MESSAGES.api.networkError);
   }
@@ -14,6 +14,31 @@ async function apiFetch<T>(path: string): Promise<T> {
   if (res.status >= 500) throw new Error(ERROR_MESSAGES.api.serverError);
   if (!res.ok) throw new Error(ERROR_MESSAGES.api.serverError);
   return res.json() as Promise<T>;
+}
+
+// ── 기구 API ──────────────────────────────────────────────────────────────────
+
+type RegisterEquipmentResponse = {
+  equipment_id:   string;
+  equipment_name: string;
+  confidence:     number;
+};
+
+export async function registerEquipment(
+  userId: string,
+  equipmentName: string,
+): Promise<EquipmentDetectedPayload> {
+  const data = await apiFetch<RegisterEquipmentResponse>('/api/equipment/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, equipment_name: equipmentName }),
+  });
+  return {
+    equipmentId:   data.equipment_id,
+    equipmentName: data.equipment_name,
+    confidence:    data.confidence,
+    detectedAt:    new Date().toISOString(),
+  };
 }
 
 // ── 로그 API ──────────────────────────────────────────────────────────────────

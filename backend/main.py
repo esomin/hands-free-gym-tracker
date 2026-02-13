@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.mongo_client import create_indexes
-from routers import log, routine
+from routers import equipment, log, routine
 from websocket.handler import handle_sensor_stream, manager
 
 app = FastAPI(title="Hands-Free Gym Tracker API")
@@ -18,8 +18,9 @@ app.add_middleware(
 )
 
 # REST API 라우터 등록
-app.include_router(log.router,     prefix="/api")
-app.include_router(routine.router, prefix="/api")
+app.include_router(log.router,       prefix="/api")
+app.include_router(routine.router,   prefix="/api")
+app.include_router(equipment.router, prefix="/api")
 
 
 # ── 앱 시작/종료 이벤트 ───────────────────────────────────────────────────────

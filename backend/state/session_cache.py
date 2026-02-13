@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from pipeline.imu_state import WINDOW_SIZE, SensorReading, TumblerState
+from pipeline.mag_fingerprint import MagVector
 
 MAX_SESSIONS = 500
 
@@ -34,6 +35,10 @@ class SessionState:
 
     # 거치됨 전이 시 지자기 지문 채취용 최근 샘플 (mag_x, mag_y, mag_z)
     recent_mag_window: deque[tuple[float, float, float]]
+
+    # equipment_unknown 이벤트 발생 시 임시 저장된 지자기 평균 벡터
+    # POST /api/equipment/register 에서 fingerprint_store 등록에 사용 후 None으로 초기화
+    pending_mag_vector: MagVector | None
 
     # 세션 시작 시각
     session_started_at: datetime
@@ -121,6 +126,7 @@ class SessionCache:
             recent_sensor_window=deque(maxlen=WINDOW_SIZE),
             ema_state={},
             recent_mag_window=deque(maxlen=MAG_WINDOW_SIZE),
+            pending_mag_vector=None,
             session_started_at=now,
             last_active_at=now,
         )

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Badge } from '@mantine/core';
 
+import { registerEquipment } from './api/client';
 import { Dashboard } from './components/Dashboard';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
@@ -43,8 +44,8 @@ function App() {
 
   async function handleRegister(equipmentName: string) {
     if (!unknownFingerprint) return;
-    // TODO: POST /api/equipment { fingerprintId, equipmentName }
-    console.log('등록 요청:', unknownFingerprint.rawFingerprintId, equipmentName);
+    const registered = await registerEquipment(USER_ID, equipmentName);
+    setEquipment(registered);
     setUnknownFingerprint(null);
   }
 
