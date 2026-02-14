@@ -35,12 +35,18 @@ class WorkoutLogCreate(BaseModel):
     sets: list[SetData] = []
 
 
+class UpdateSetsBody(BaseModel):
+    # 교체할 세트 목록 전체
+    sets: list[SetData]
+
+
 class WorkoutLogResponse(BaseModel):
     id: str
     user_id: str
     equipment_id: str
     equipment_name: str
     sets: list[SetData]
+    status: str
     started_at: datetime
     ended_at: datetime | None
 
@@ -53,6 +59,14 @@ def _serialize(doc: dict) -> dict:
     return doc
 
 
+def _parse_oid(log_id: str) -> ObjectId:
+    """log_id 문자열을 ObjectId로 변환한다. 실패 시 400 에러."""
+    try:
+        return ObjectId(log_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="유효하지 않은 log_id 입니다.")
+
+
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
 
 @router.get("/")
@@ -62,10 +76,11 @@ async def get_logs(
     end: datetime | None = Query(None, description="조회 종료 시각 (ISO 8601)"),
 ):
     """
-    특정 사용자의 운동 로그를 날짜 범위로 필터링하여 반환한다.
-    start, end 를 생략하면 전체 로그를 반환한다.
+    특정 사용자의 완료된(completed) 운동 로그를 날짜 범위로 필터링하여 반환한다.
+    in_progress 상태의 로그는 포함하지 않는다.
     """
-    query: dict = {"user_id": user_id}
+    # completed 상태만 반환
+    query: dict = {"user_id": user_id, "status": "completed"}
 
     if start or end:
         query["started_at"] = {}
@@ -82,7 +97,7 @@ async def get_logs(
 
 @router.post("/", status_code=201)
 async def create_log(body: WorkoutLogCreate):
-    """새 운동 로그 도큐먼트를 생성한다."""
+    """새 운동 로그 도큐먼트를 in_progress 상태로 생성한다."""
     now = datetime.now(timezone.utc)
     doc = {
         "user_id":        body.user_id,
@@ -93,6 +108,8 @@ async def create_log(body: WorkoutLogCreate):
             {**s.model_dump(), "logged_at": s.logged_at or now}
             for s in body.sets
         ],
+        # 운동 시작 시 in_progress, 완료 시 completed 로 업데이트
+        "status":     "in_progress",
         "started_at": now,
         "ended_at":   None,
         "created_at": now,
@@ -103,41 +120,42 @@ async def create_log(body: WorkoutLogCreate):
     return doc
 
 
-@router.patch("/{log_id}/sets", status_code=200)
-async def add_set(log_id: str, set_data: SetData):
-    """기존 로그에 새 세트를 추가한다."""
-    try:
-        oid = ObjectId(log_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="유효하지 않은 log_id 입니다.")
-
+@router.patch("/{log_id}/complete", status_code=200)
+async def complete_log(log_id: str):
+    """운동 완료: status 를 completed 로 업데이트하고 종료 시각을 기록한다."""
+    oid = _parse_oid(log_id)
     now = datetime.now(timezone.utc)
-    set_doc = {**set_data.model_dump(), "logged_at": set_data.logged_at or now}
-
     result = await workout_logs().update_one(
         {"_id": oid},
-        {"$push": {"sets": set_doc}},
+        {"$set": {"status": "completed", "ended_at": now}},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="로그를 찾을 수 없습니다.")
+    return {"ok": True, "ended_at": now.isoformat()}
 
+
+@router.put("/{log_id}/sets", status_code=200)
+async def update_sets(log_id: str, body: UpdateSetsBody):
+    """목표 수정: in_progress 로그의 세트 목록 전체를 교체한다."""
+    oid = _parse_oid(log_id)
+    now = datetime.now(timezone.utc)
+    new_sets = [
+        {**s.model_dump(), "logged_at": s.logged_at or now}
+        for s in body.sets
+    ]
+    result = await workout_logs().update_one(
+        {"_id": oid},
+        {"$set": {"sets": new_sets}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="로그를 찾을 수 없습니다.")
     return {"ok": True}
 
 
-@router.patch("/{log_id}/end", status_code=200)
-async def end_log(log_id: str):
-    """운동 세션 종료 시각을 기록한다."""
-    try:
-        oid = ObjectId(log_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="유효하지 않은 log_id 입니다.")
-
-    now = datetime.now(timezone.utc)
-    result = await workout_logs().update_one(
-        {"_id": oid},
-        {"$set": {"ended_at": now}},
+@router.delete("/in-progress", status_code=200)
+async def delete_in_progress(user_id: str = Query(..., description="사용자 ID")):
+    """기구 교체 시 기존 in_progress 로그를 삭제한다."""
+    result = await workout_logs().delete_many(
+        {"user_id": user_id, "status": "in_progress"},
     )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="로그를 찾을 수 없습니다.")
-
-    return {"ok": True, "ended_at": now.isoformat()}
+    return {"ok": True, "deleted_count": result.deleted_count}

@@ -62,6 +62,28 @@ export async function createWorkoutLog(
   return data.id;
 }
 
+export async function completeWorkoutLog(logId: string): Promise<void> {
+  await apiFetch(`/api/logs/${logId}/complete`, { method: 'PATCH' });
+}
+
+export async function updateWorkoutLogSets(
+  logId: string,
+  sets: { weight: number; reps: number }[],
+): Promise<void> {
+  await apiFetch(`/api/logs/${logId}/sets`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sets: sets.map((s, i) => ({ set_number: i + 1, weight: s.weight, reps: s.reps })),
+    }),
+  });
+}
+
+export async function deleteInProgressLog(userId: string): Promise<void> {
+  const params = new URLSearchParams({ user_id: userId });
+  await apiFetch(`/api/logs/in-progress?${params}`, { method: 'DELETE' });
+}
+
 
 type LogSetResponse = {
   set_number: number;
