@@ -1,5 +1,5 @@
 import { ERROR_MESSAGES } from '../constants/errorMessages';
-import type { DashboardEntry, EquipmentDetectedPayload, SmartDefaultData } from '../types';
+import type { DashboardLog, EquipmentDetectedPayload, SmartDefaultData } from '../types';
 
 const BASE_URL = 'http://localhost:8000';
 
@@ -89,16 +89,17 @@ type LogSetResponse = {
   set_number: number;
   weight:     number;
   reps:       number;
-  logged_at:  string;
 };
 
 type WorkoutLogResponse = {
   id:             string;
   equipment_name: string;
   sets:           LogSetResponse[];
+  started_at:     string;
+  ended_at:       string | null;
 };
 
-export async function fetchTodayLogs(userId: string): Promise<DashboardEntry[]> {
+export async function fetchTodayLogs(userId: string): Promise<DashboardLog[]> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -111,18 +112,20 @@ export async function fetchTodayLogs(userId: string): Promise<DashboardEntry[]> 
   });
   const logs = await apiFetch<WorkoutLogResponse[]>(`/api/logs/?${params}`);
 
-  // 로그 엔트리 → 세트 단위로 펼쳐서 loggedAt 내림차순 정렬
-  const entries: DashboardEntry[] = logs.flatMap((log) =>
-    log.sets.map((set) => ({
+  // 로그 단위 유지, started_at 오름차순 정렬
+  return logs
+    .map((log) => ({
+      id:            log.id,
       equipmentName: log.equipment_name,
-      setNumber:     set.set_number,
-      weight:        set.weight,
-      reps:          set.reps,
-      loggedAt:      set.logged_at,
-    })),
-  );
-  entries.sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime());
-  return entries;
+      sets:          log.sets.map((s) => ({
+        setNumber: s.set_number,
+        weight:    s.weight,
+        reps:      s.reps,
+      })),
+      startedAt: log.started_at,
+      endedAt:   log.ended_at,
+    }))
+    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
 }
 
 // ── 루틴 API ──────────────────────────────────────────────────────────────────

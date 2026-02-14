@@ -1,49 +1,27 @@
 import { Card, Skeleton, Text } from '@mantine/core';
 
-import type { DashboardEntry } from '../types';
+import type { DashboardLog } from '../types';
 
 type DashboardProps = {
-  entries:   DashboardEntry[];
+  logs:      DashboardLog[];
   isLoading: boolean;
 };
 
-type EquipmentGroup = {
-  equipmentName: string;
-  sets:          DashboardEntry[];
-  latestLoggedAt: string;
-};
-
-function groupByEquipment(entries: DashboardEntry[]): EquipmentGroup[] {
-  const map = new Map<string, EquipmentGroup>();
-
-  for (const entry of entries) {
-    const existing = map.get(entry.equipmentName);
-    if (existing) {
-      existing.sets.push(entry);
-      if (entry.loggedAt > existing.latestLoggedAt) {
-        existing.latestLoggedAt = entry.loggedAt;
-      }
-    } else {
-      map.set(entry.equipmentName, {
-        equipmentName:  entry.equipmentName,
-        sets:           [entry],
-        latestLoggedAt: entry.loggedAt,
-      });
-    }
-  }
-
-  return [...map.values()]
-    .sort((a, b) => a.latestLoggedAt.localeCompare(b.latestLoggedAt))
-    .map((group) => ({
-      ...group,
-      sets: [...group.sets].sort((a, b) => a.setNumber - b.setNumber),
-    }));
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function Dashboard({ entries, isLoading }: DashboardProps) {
+function formatDuration(startedAt: string, endedAt: string | null): string {
+  if (!endedAt) return formatTime(startedAt);
+  const diffMs  = new Date(endedAt).getTime() - new Date(startedAt).getTime();
+  const diffMin = Math.round(diffMs / 60000);
+  return `${formatTime(startedAt)} ~ ${formatTime(endedAt)} (${diffMin}분)`;
+}
+
+export function Dashboard({ logs, isLoading }: DashboardProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[1, 2].map((i) => (
           <Skeleton key={i} height={120} radius="md" />
         ))}
@@ -51,7 +29,7 @@ export function Dashboard({ entries, isLoading }: DashboardProps) {
     );
   }
 
-  if (entries.length === 0) {
+  if (logs.length === 0) {
     return (
       <div className="flex items-center justify-center h-40">
         <Text c="dimmed" size="sm">오늘 기록된 운동이 없습니다.</Text>
@@ -59,37 +37,32 @@ export function Dashboard({ entries, isLoading }: DashboardProps) {
     );
   }
 
-  const groups = groupByEquipment(entries);
-
   return (
     <div className="grid grid-cols-2 gap-3">
-      {groups.map((group) => (
-        <Card key={group.equipmentName} shadow="sm" padding="md" radius="md" withBorder>
-          <Text fw={700} size="md" mb="sm">{group.equipmentName}</Text>
+      {logs.map((log) => (
+        <Card key={log.id} shadow="sm" padding="md" radius="md" withBorder>
+          {/* 카드 헤더: 기구명 + 시작~완료 (소요시간) */}
+          <div className="flex items-baseline justify-between mb-2">
+            <Text fw={700} size="md">{log.equipmentName}</Text>
+            <Text size="xs" c="dimmed">{formatDuration(log.startedAt, log.endedAt)}</Text>
+          </div>
 
-          {/* 헤더 */}
-          <div className="grid grid-cols-[2rem_1fr_1fr_auto] gap-x-3 mb-1">
+          {/* 컬럼 헤더 */}
+          <div className="grid grid-cols-[2rem_1fr_1fr] gap-x-3 mb-1">
             <Text size="xs" c="dimmed" fw={500} className="text-center">세트</Text>
             <Text size="xs" c="dimmed" fw={500}>무게</Text>
             <Text size="xs" c="dimmed" fw={500}>횟수</Text>
-            <Text size="xs" c="dimmed" fw={500}>시간</Text>
           </div>
 
           {/* 세트 행 */}
-          {group.sets.map((set) => (
+          {log.sets.map((set) => (
             <div
-              key={`${set.setNumber}-${set.loggedAt}`}
-              className="grid grid-cols-[2rem_1fr_1fr_auto] gap-x-3 py-1 border-t border-gray-100"
+              key={set.setNumber}
+              className="grid grid-cols-[2rem_1fr_1fr] gap-x-3 py-1 border-t border-gray-100"
             >
               <Text size="sm" c="dimmed" className="text-center">{set.setNumber}</Text>
               <Text size="sm" fw={600}>{set.weight}kg</Text>
               <Text size="sm" fw={600}>{set.reps}회</Text>
-              <Text size="xs" c="dimmed" className="self-center">
-                {new Date(set.loggedAt).toLocaleTimeString('ko-KR', {
-                  hour:   '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
             </div>
           ))}
         </Card>

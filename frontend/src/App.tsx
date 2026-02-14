@@ -38,7 +38,7 @@ const STATUS_BADGE: Record<string, { color: string; label: string }> = {
 function App() {
   const { lastEvent, status } = useWebSocketContext();
   const { smartDefault, isLoading, fetchForEquipment } = useWorkoutLog(USER_ID);
-  const { entries, isLoading: isDashboardLoading, refetch } = useDashboard(USER_ID);
+  const { logs, isLoading: isDashboardLoading, refetch } = useDashboard(USER_ID);
 
   const [equipment,          setEquipment]          = useState<EquipmentDetectedPayload | null>(null);
   const [tumblerState,       setTumblerState]       = useState<TumblerStatePayload | null>(null);
@@ -153,7 +153,7 @@ function App() {
         </div>
 
         <div className="w-full md:w-2/3">
-          <Dashboard entries={entries} isLoading={isDashboardLoading} />
+          <Dashboard logs={logs} isLoading={isDashboardLoading} />
         </div>
       </div>
 

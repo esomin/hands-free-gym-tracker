@@ -62,12 +62,18 @@ export type WorkoutLogEntry = {
 
 // ─── 대시보드 ─────────────────────────────────────────────────────────────────
 
-export type DashboardEntry = {
+export type DashboardSet = {
+  setNumber: number;
+  weight:    number;
+  reps:      number;
+};
+
+export type DashboardLog = {
+  id:            string;
   equipmentName: string;
-  setNumber:     number;
-  weight:        number;
-  reps:          number;
-  loggedAt:      string;
+  sets:          DashboardSet[];
+  startedAt:     string;       // ISO 8601
+  endedAt:       string | null;
 };
 
 // ─── 스마트 디폴트 ────────────────────────────────────────────────────────────
