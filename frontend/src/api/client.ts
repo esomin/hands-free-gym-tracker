@@ -79,6 +79,29 @@ export async function updateWorkoutLogSets(
   });
 }
 
+// ── 세션 API ──────────────────────────────────────────────────────────────────
+
+type SessionEquipment = {
+  equipment_id:   string;
+  equipment_name: string;
+  confidence:     number;
+};
+
+type SessionInProgressLog = {
+  log_id: string;
+  sets:   { set_number: number; weight: number; reps: number }[];
+};
+
+export type SessionSnapshot = {
+  tumbler_state:   'moving' | 'settled';
+  equipment:       SessionEquipment | null;
+  in_progress_log: SessionInProgressLog | null;
+};
+
+export async function fetchSessionSnapshot(userId: string): Promise<SessionSnapshot> {
+  return apiFetch<SessionSnapshot>(`/api/session/${userId}`);
+}
+
 export async function deleteInProgressLog(userId: string): Promise<void> {
   const params = new URLSearchParams({ user_id: userId });
   await apiFetch(`/api/logs/in-progress?${params}`, { method: 'DELETE' });

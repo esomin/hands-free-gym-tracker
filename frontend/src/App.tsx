@@ -7,6 +7,7 @@ import {
   completeWorkoutLog,
   createWorkoutLog,
   deleteInProgressLog,
+  fetchSessionSnapshot,
   registerEquipment,
   updateWorkoutLogSets,
 } from './api/client';
@@ -47,6 +48,32 @@ function App() {
   // 진행 중인 운동 로그 상태
   const [inProgressLogId, setInProgressLogId] = useState<string | null>(null);
   const [inProgressSets,  setInProgressSets]  = useState<SetEntry[]>([]);
+
+  // 마운트 시 세션 스냅샷으로 상태 복원 (새로고침 / 앱 재진입 대응)
+  useEffect(() => {
+    fetchSessionSnapshot(USER_ID)
+      .then((snapshot) => {
+        if (snapshot.tumbler_state === 'settled') {
+          setTumblerState({ state: 'settled', transitionedAt: new Date().toISOString() });
+        }
+        if (snapshot.equipment) {
+          setEquipment({
+            equipmentId:   snapshot.equipment.equipment_id,
+            equipmentName: snapshot.equipment.equipment_name,
+            confidence:    snapshot.equipment.confidence,
+            detectedAt:    new Date().toISOString(),
+          });
+          fetchForEquipment(snapshot.equipment.equipment_id);
+        }
+        if (snapshot.in_progress_log) {
+          setInProgressLogId(snapshot.in_progress_log.log_id);
+          setInProgressSets(
+            snapshot.in_progress_log.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!lastEvent) return;
