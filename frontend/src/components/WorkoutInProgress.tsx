@@ -55,7 +55,7 @@ export function WorkoutInProgress({ sets, onComplete, onUpdateSets }: WorkoutInP
   }
 
   return (
-    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3">
+    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]">
       <Text fw={600} size="sm" c="dimmed" mb="xs">운동 중</Text>
 
       {isEditing ? (

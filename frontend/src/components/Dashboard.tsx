@@ -21,7 +21,7 @@ function formatDuration(startedAt: string, endedAt: string | null): string {
 export function Dashboard({ logs, isLoading }: DashboardProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex flex-col gap-3">
         {[1, 2].map((i) => (
           <Skeleton key={i} height={120} radius="md" />
         ))}
@@ -38,7 +38,7 @@ export function Dashboard({ logs, isLoading }: DashboardProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="flex flex-col gap-3">
       {logs.map((log) => (
         <Card key={log.id} shadow="sm" padding="md" radius="md" withBorder>
           {/* 카드 헤더: 기구명 + 시작~완료 (소요시간) */}

@@ -47,19 +47,6 @@ export type SetLogPayload = {
   loggedAt: string;
 };
 
-export type WorkoutSet = {
-  setNumber: number;
-  weight: number;
-  reps: number;
-  loggedAt: string;
-};
-
-export type WorkoutLogEntry = {
-  equipmentName: string;
-  sets: WorkoutSet[];
-  startedAt: string;
-};
-
 // ─── 대시보드 ─────────────────────────────────────────────────────────────────
 
 export type DashboardSet = {

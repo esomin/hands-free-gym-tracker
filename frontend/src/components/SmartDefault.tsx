@@ -35,7 +35,7 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
     const isNew = data.basedOnDate === null;
     const initialSets = Array.from({ length: data.suggestedSets }, () => ({
       weight: isNew ? 15 : data.suggestedWeight,
-      reps:   isNew ? 12 : data.suggestedReps,
+      reps: isNew ? 12 : data.suggestedReps,
     }));
     setSets(initialSets);
     setErrors(initialSets.map(() => ({})));
@@ -43,7 +43,7 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
 
   if (isLoading) {
     return (
-      <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3">
+      <Card shadow="sm" padding="md" radius="md" withBorder>
         <Skeleton height={16} width="40%" mb="sm" />
         <Skeleton height={36} mb="xs" />
         <Skeleton height={36} mb="xs" />
@@ -91,7 +91,7 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
   const isNew = data.basedOnDate === null;
 
   return (
-    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3">
+    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]">
       <Text fw={600} size="sm" c="dimmed" mb="xs">목표 설정</Text>
 
       {isNew && (

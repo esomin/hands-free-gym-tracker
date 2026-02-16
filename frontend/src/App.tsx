@@ -130,7 +130,7 @@ function App() {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row">
-        <div className="w-full md:w-1/3">
+        <div className="w-full md:w-[40%]">
           <EquipmentStatus equipment={equipment} tumblerState={tumblerState} />
 
           {/* Phase 3: 운동 진행 중 */}
@@ -152,7 +152,7 @@ function App() {
           )}
         </div>
 
-        <div className="w-full md:w-2/3">
+        <div className="w-full md:w-[40%]">
           <Dashboard logs={logs} isLoading={isDashboardLoading} />
         </div>
       </div>
