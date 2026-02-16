@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from db.mongo_client import equipment_fingerprints
 from pipeline.mag_fingerprint import fingerprint_store
 from state.session_cache import session_cache
 
@@ -46,8 +49,16 @@ async def register_equipment(body: RegisterEquipmentRequest):
             detail="등록할 지자기 지문이 없습니다. 먼저 기구 옆에 텀블러를 거치해 주세요.",
         )
 
-    # fingerprint_store에 새 기구 등록
+    # FingerprintStore (메모리) 에 등록
     entry = fingerprint_store.register(body.equipment_name, session.pending_mag_vector)
+
+    # MongoDB equipment_fingerprints 컬렉션에 영속 저장
+    await equipment_fingerprints().insert_one({
+        "equipment_id":   entry.equipment_id,
+        "equipment_name": entry.equipment_name,
+        "vector":         list(entry.vector),
+        "registered_at":  datetime.now(timezone.utc),
+    })
 
     # 세션 상태 갱신
     session.current_equipment_id = entry.equipment_id

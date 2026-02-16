@@ -98,6 +98,24 @@ class FingerprintStore:
         for e in entries:
             self._store[e.equipment_id] = e
 
+    async def load_from_db(self) -> None:
+        """
+        서버 시작 시 MongoDB equipment_fingerprints 컬렉션에서
+        등록된 기구 지문을 전부 읽어 FingerprintStore(메모리)에 복원한다.
+
+        [MongoDB / equipment_fingerprints] → [메모리 / FingerprintStore]
+        """
+        from db.mongo_client import equipment_fingerprints as eq_col
+        docs = await eq_col().find({}).to_list(length=None)
+        for doc in docs:
+            entry = FingerprintEntry(
+                equipment_id=doc["equipment_id"],
+                equipment_name=doc["equipment_name"],
+                vector=tuple(doc["vector"]),
+            )
+            self._store[entry.equipment_id] = entry
+        print(f"[startup] FingerprintStore 복원 완료: {len(docs)}개 기구")
+
     def __len__(self) -> int:
         return len(self._store)
 

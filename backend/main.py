@@ -4,6 +4,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.mongo_client import create_indexes
+from pipeline.mag_fingerprint import fingerprint_store
 from routers import equipment, log, routine, session
 from websocket.handler import handle_sensor_stream, manager
 
@@ -30,6 +31,7 @@ app.include_router(session.router,   prefix="/api")
 async def startup():
     try:
         await create_indexes()
+        await fingerprint_store.load_from_db()
     except Exception as e:
         print(f"[startup] MongoDB 연결 실패 (WebSocket은 정상 동작): {e}")
 
