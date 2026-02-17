@@ -7,13 +7,24 @@ type DashboardProps = {
   isLoading: boolean;
 };
 
+function parseUTC(iso: string): Date {
+  // Motor(PyMongo)가 반환하는 naive datetime은 타임존 표시가 없으나 실제로는 UTC
+  // 타임존 표시가 없으면 'Z'를 붙여 UTC로 강제 해석
+  const utcIso = iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z';
+  return new Date(utcIso);
+}
+
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  return parseUTC(iso).toLocaleTimeString('ko-KR', {
+    hour:     '2-digit',
+    minute:   '2-digit',
+    timeZone: 'Asia/Seoul',
+  });
 }
 
 function formatDuration(startedAt: string, endedAt: string | null): string {
   if (!endedAt) return formatTime(startedAt);
-  const diffMs  = new Date(endedAt).getTime() - new Date(startedAt).getTime();
+  const diffMs  = parseUTC(endedAt).getTime() - parseUTC(startedAt).getTime();
   const diffMin = Math.round(diffMs / 60000);
   return `${formatTime(startedAt)} ~ ${formatTime(endedAt)} (${diffMin}분)`;
 }
