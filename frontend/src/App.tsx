@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { Badge } from '@mantine/core';
+import { Badge, Button, Group, Modal, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 
 import {
@@ -48,6 +48,15 @@ function App() {
   // 진행 중인 운동 로그 상태
   const [inProgressLogId, setInProgressLogId] = useState<string | null>(null);
   const [inProgressSets,  setInProgressSets]  = useState<SetEntry[]>([]);
+  // useEffect 스테일 클로저 방지: inProgressLogId 최신값을 ref로 유지
+  const inProgressLogIdRef = useRef(inProgressLogId);
+  inProgressLogIdRef.current = inProgressLogId;
+
+  // 기구 변경 시 미완료 로그 처리 모달 상태
+  const [logActionModal, setLogActionModal] = useState<{
+    open:          boolean;
+    nextEquipment: EquipmentDetectedPayload | null;
+  }>({ open: false, nextEquipment: null });
 
   // 마운트 시 세션 스냅샷으로 상태 복원 (새로고침 / 앱 재진입 대응)
   useEffect(() => {
@@ -79,13 +88,13 @@ function App() {
     if (!lastEvent) return;
 
     if (lastEvent.type === 'equipment_detected') {
-      // 기구 교체 시 기존 in_progress 로그 삭제
-      if (inProgressLogId) {
-        deleteInProgressLog(USER_ID).catch(() => {});
-        setInProgressLogId(null);
-        setInProgressSets([]);
+      // 기구 변경 시 미완료 로그가 있으면 처리 모달을 띄움
+      if (inProgressLogIdRef.current) {
+        setLogActionModal({ open: true, nextEquipment: lastEvent.payload });
+        return;
       }
       setEquipment(lastEvent.payload);
+      fetchForEquipment(lastEvent.payload.equipmentId);
     }
 
     if (lastEvent.type === 'tumbler_state_changed') setTumblerState(lastEvent.payload);
@@ -117,6 +126,42 @@ function App() {
         message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
       });
     }
+  }
+
+  // 기구 변경 확인 후 공통: 새 기구로 전환
+  function applyNextEquipment() {
+    const next = logActionModal.nextEquipment;
+    if (!next) return;
+    setInProgressLogId(null);
+    setInProgressSets([]);
+    setEquipment(next);
+    fetchForEquipment(next.equipmentId);
+    setLogActionModal({ open: false, nextEquipment: null });
+  }
+
+  // 미완료 로그 삭제 후 기구 전환
+  async function handleDeleteAndContinue() {
+    try {
+      await deleteInProgressLog(USER_ID);
+    } catch {
+      // 삭제 실패해도 상태는 초기화하여 진행
+    }
+    applyNextEquipment();
+  }
+
+  // 미완료 로그 저장(완료 처리) 후 기구 전환
+  async function handleSaveAndContinue() {
+    if (!inProgressLogId) return;
+    try {
+      await completeWorkoutLog(inProgressLogId);
+      refetch();
+    } catch (err) {
+      notifications.show({
+        color:   'red',
+        message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
+      });
+    }
+    applyNextEquipment();
   }
 
   async function handleComplete() {
@@ -183,6 +228,26 @@ function App() {
           <Dashboard logs={logs} isLoading={isDashboardLoading} />
         </div>
       </div>
+
+      <Modal
+        opened={logActionModal.open}
+        onClose={() => {}}
+        withCloseButton={false}
+        title="진행 중인 운동 기록"
+        centered
+      >
+        <Text size="sm" mb="lg">
+          기구가 변경되었습니다. 진행 중인 운동 기록을 어떻게 처리할까요?
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="subtle" color="red" onClick={handleDeleteAndContinue}>
+            삭제하고 계속
+          </Button>
+          <Button onClick={handleSaveAndContinue}>
+            저장하고 계속
+          </Button>
+        </Group>
+      </Modal>
 
       <EquipmentRegisterModal
         open={unknownFingerprint !== null}
