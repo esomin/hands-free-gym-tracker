@@ -30,10 +30,10 @@ import type {
 const USER_ID = 'user-1';
 
 const STATUS_BADGE: Record<string, { color: string; label: string }> = {
-  connecting:   { color: 'yellow', label: '연결 중' },
-  connected:    { color: 'green',  label: '연결됨' },
+  connecting: { color: 'yellow', label: '연결 중' },
+  connected: { color: 'green', label: '연결됨' },
   reconnecting: { color: 'orange', label: '재연결 중' },
-  disconnected: { color: 'gray',   label: '연결 끊김' },
+  disconnected: { color: 'gray', label: '연결 끊김' },
 };
 
 function App() {
@@ -41,20 +41,20 @@ function App() {
   const { smartDefault, isLoading, fetchForEquipment } = useWorkoutLog(USER_ID);
   const { logs, isLoading: isDashboardLoading, refetch } = useDashboard(USER_ID);
 
-  const [equipment,          setEquipment]          = useState<EquipmentDetectedPayload | null>(null);
-  const [tumblerState,       setTumblerState]       = useState<TumblerStatePayload | null>(null);
+  const [equipment, setEquipment] = useState<EquipmentDetectedPayload | null>(null);
+  const [tumblerState, setTumblerState] = useState<TumblerStatePayload | null>(null);
   const [unknownFingerprint, setUnknownFingerprint] = useState<UnknownEquipmentPayload | null>(null);
 
   // 진행 중인 운동 로그 상태
   const [inProgressLogId, setInProgressLogId] = useState<string | null>(null);
-  const [inProgressSets,  setInProgressSets]  = useState<SetEntry[]>([]);
+  const [inProgressSets, setInProgressSets] = useState<SetEntry[]>([]);
   // useEffect 스테일 클로저 방지: inProgressLogId 최신값을 ref로 유지
   const inProgressLogIdRef = useRef(inProgressLogId);
   inProgressLogIdRef.current = inProgressLogId;
 
   // 기구 변경 시 미완료 로그 처리 모달 상태
   const [logActionModal, setLogActionModal] = useState<{
-    open:          boolean;
+    open: boolean;
     nextEquipment: EquipmentDetectedPayload | null;
   }>({ open: false, nextEquipment: null });
 
@@ -67,10 +67,10 @@ function App() {
         }
         if (snapshot.equipment) {
           setEquipment({
-            equipmentId:   snapshot.equipment.equipment_id,
+            equipmentId: snapshot.equipment.equipment_id,
             equipmentName: snapshot.equipment.equipment_name,
-            confidence:    snapshot.equipment.confidence,
-            detectedAt:    new Date().toISOString(),
+            confidence: snapshot.equipment.confidence,
+            detectedAt: new Date().toISOString(),
           });
           fetchForEquipment(snapshot.equipment.equipment_id);
         }
@@ -81,7 +81,7 @@ function App() {
           );
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -98,7 +98,7 @@ function App() {
     }
 
     if (lastEvent.type === 'tumbler_state_changed') setTumblerState(lastEvent.payload);
-    if (lastEvent.type === 'equipment_unknown')      setUnknownFingerprint(lastEvent.payload);
+    if (lastEvent.type === 'equipment_unknown') setUnknownFingerprint(lastEvent.payload);
   }, [lastEvent]);
 
   async function handleRegister(equipmentName: string) {
@@ -122,7 +122,7 @@ function App() {
       setInProgressSets(sets);
     } catch (err) {
       notifications.show({
-        color:   'red',
+        color: 'red',
         message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
       });
     }
@@ -157,7 +157,7 @@ function App() {
       refetch();
     } catch (err) {
       notifications.show({
-        color:   'red',
+        color: 'red',
         message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
       });
     }
@@ -173,7 +173,7 @@ function App() {
       refetch();
     } catch (err) {
       notifications.show({
-        color:   'red',
+        color: 'red',
         message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
       });
     }
@@ -186,7 +186,7 @@ function App() {
       setInProgressSets(sets);
     } catch (err) {
       notifications.show({
-        color:   'red',
+        color: 'red',
         message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
       });
     }
@@ -203,7 +203,7 @@ function App() {
 
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="w-full md:w-[40%]">
-          <EquipmentStatus equipment={equipment} tumblerState={tumblerState} />
+          <EquipmentStatus equipment={equipment} tumblerState={tumblerState} inProgress={inProgressLogId !== null} />
 
           {/* Phase 3: 운동 진행 중 */}
           {inProgressLogId && (
@@ -231,7 +231,7 @@ function App() {
 
       <Modal
         opened={logActionModal.open}
-        onClose={() => {}}
+        onClose={() => { }}
         withCloseButton={false}
         title="진행 중인 운동 기록"
         centered
