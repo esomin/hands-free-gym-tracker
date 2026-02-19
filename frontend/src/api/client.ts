@@ -151,6 +151,12 @@ export async function fetchTodayLogs(userId: string): Promise<DashboardLog[]> {
     .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
 }
 
+// ── 데모 API ──────────────────────────────────────────────────────────────────
+
+export async function startDemoScenario(userId: string): Promise<void> {
+  await apiFetch(`/api/demo/scenario/${userId}`, { method: 'POST' });
+}
+
 // ── 루틴 API ──────────────────────────────────────────────────────────────────
 
 type SmartDefaultResponse = {

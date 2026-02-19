@@ -9,6 +9,7 @@ import {
   deleteInProgressLog,
   fetchSessionSnapshot,
   registerEquipment,
+  startDemoScenario,
   updateWorkoutLogSets,
 } from './api/client';
 import { ERROR_MESSAGES } from './constants/errorMessages';
@@ -99,6 +100,17 @@ function App() {
 
     if (lastEvent.type === 'tumbler_state_changed') setTumblerState(lastEvent.payload);
     if (lastEvent.type === 'equipment_unknown') setUnknownFingerprint(lastEvent.payload);
+
+    // 데모 시나리오: 백엔드가 직접 생성한 운동 로그를 프론트엔드 상태에 반영
+    if (lastEvent.type === 'demo_workout_started') {
+      setInProgressLogId(lastEvent.payload.logId);
+      setInProgressSets(lastEvent.payload.sets);
+    }
+    if (lastEvent.type === 'demo_workout_completed') {
+      setInProgressLogId(null);
+      setInProgressSets([]);
+      refetch();
+    }
   }, [lastEvent]);
 
   async function handleRegister(equipmentName: string) {
@@ -199,6 +211,14 @@ function App() {
       <div className="flex items-center gap-3 mb-4">
         <h1 className="text-2xl font-bold text-gray-800">Hands-Free Gym Tracker</h1>
         <Badge color={badge.color} variant="light">{badge.label}</Badge>
+        <Button
+          size="xs"
+          variant="light"
+          color="violet"
+          onClick={() => startDemoScenario(USER_ID).catch(() => {})}
+        >
+          데모 시작
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row">

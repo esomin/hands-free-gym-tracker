@@ -4,7 +4,9 @@ export type SensorEventType =
   | 'equipment_detected'
   | 'tumbler_state_changed'
   | 'set_logged'
-  | 'equipment_unknown';
+  | 'equipment_unknown'
+  | 'demo_workout_started'
+  | 'demo_workout_completed';
 
 export type WebSocketMessage<T = unknown> = {
   type: SensorEventType;
@@ -73,15 +75,28 @@ export type SmartDefaultData = {
   basedOnDate: string | null; // 과거 기록 없으면 null
 };
 
+// ─── 데모 시나리오 이벤트 ─────────────────────────────────────────────────────
+
+export type DemoWorkoutStartedPayload = {
+  logId: string;
+  sets:  { weight: number; reps: number }[];
+};
+
+export type DemoWorkoutCompletedPayload = {
+  logId: string;
+};
+
 // ─── WebSocket 훅 반환 타입 ───────────────────────────────────────────────────
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 export type WebSocketEvent =
-  | { type: 'equipment_detected'; payload: EquipmentDetectedPayload }
+  | { type: 'equipment_detected';    payload: EquipmentDetectedPayload }
   | { type: 'tumbler_state_changed'; payload: TumblerStatePayload }
-  | { type: 'set_logged'; payload: SetLogPayload }
-  | { type: 'equipment_unknown'; payload: UnknownEquipmentPayload };
+  | { type: 'set_logged';            payload: SetLogPayload }
+  | { type: 'equipment_unknown';     payload: UnknownEquipmentPayload }
+  | { type: 'demo_workout_started';  payload: DemoWorkoutStartedPayload }
+  | { type: 'demo_workout_completed'; payload: DemoWorkoutCompletedPayload };
 
 export type UseWebSocketReturn = {
   status: WebSocketStatus;
