@@ -1,7 +1,7 @@
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import type { DashboardLog, EquipmentDetectedPayload, SmartDefaultData } from '../types';
 
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;

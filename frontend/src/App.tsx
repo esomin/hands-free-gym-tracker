@@ -213,9 +213,10 @@ function App() {
         <Badge color={badge.color} variant="light">{badge.label}</Badge>
         <Button
           size="xs"
+          className="w-30!"
           variant="light"
           color="violet"
-          onClick={() => startDemoScenario(USER_ID).catch(() => {})}
+          onClick={() => startDemoScenario(USER_ID).catch(() => { })}
         >
           데모 시작
         </Button>

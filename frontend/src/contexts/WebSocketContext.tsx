@@ -3,7 +3,8 @@ import { createContext, useContext } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { UseWebSocketReturn } from '../types';
 
-const WS_URL = 'ws://localhost:8000/ws/user-1';
+const WS_BASE = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8000';
+const WS_URL = `${WS_BASE}/ws/user-1`;
 
 const WebSocketContext = createContext<UseWebSocketReturn | null>(null);
 
