@@ -12,7 +12,11 @@ app = FastAPI(title="Hands-Free Gym Tracker API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=[
+        "http://localhost:5173",                              # Vite dev server
+        "https://handsfree-gym-tracker.web.app",             # Firebase Hosting
+        "https://handsfree-gym-tracker.firebaseapp.com",     # Firebase Hosting (대체 도메인)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
