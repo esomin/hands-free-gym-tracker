@@ -59,9 +59,8 @@ function App() {
     nextEquipment: EquipmentDetectedPayload | null;
   }>({ open: false, nextEquipment: null });
 
-  // 데모 실행 중 카운트업 타이머 상태
-  const [demoSeconds, setDemoSeconds] = useState<number | null>(null);
-  const demoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 데모 실행 중 여부 (버튼 비활성화에 사용)
+  const [isDemoRunning, setIsDemoRunning] = useState(false);
 
   // 마운트 시 세션 스냅샷으로 상태 복원 (새로고침 / 앱 재진입 대응)
   useEffect(() => {
@@ -84,6 +83,10 @@ function App() {
           setInProgressSets(
             snapshot.in_progress_log.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
           );
+        }
+        // 새로고침 시 데모가 실행 중이면 버튼 비활성화 복원
+        if (snapshot.is_demo_running) {
+          setIsDemoRunning(true);
         }
       })
       .catch(() => { });
@@ -115,13 +118,9 @@ function App() {
       setInProgressSets([]);
       refetch();
     }
-    // 전체 시나리오 완료 시에만 타이머 정지 및 버튼 복귀
+    // 전체 시나리오 완료 시 버튼 복귀
     if (lastEvent.type === 'demo_scenario_completed') {
-      if (demoTimerRef.current) {
-        clearInterval(demoTimerRef.current);
-        demoTimerRef.current = null;
-      }
-      setDemoSeconds(null);
+      setIsDemoRunning(false);
     }
     // 데모 로그 삭제 완료 시 대시보드 갱신
     if (lastEvent.type === 'demo_logs_cleared') {
@@ -232,24 +231,15 @@ function App() {
           className="w-30!"
           variant="light"
           color="violet"
-          disabled={demoSeconds !== null}
+          disabled={isDemoRunning}
           onClick={() => {
-            // 데모 시작 시 카운트업 타이머 시작
-            setDemoSeconds(0);
-            demoTimerRef.current = setInterval(() => {
-              setDemoSeconds((s) => (s !== null ? s + 1 : 0));
-            }, 1000);
+            setIsDemoRunning(true);
             startDemoScenario(USER_ID).catch(() => {
-              // 요청 실패 시 타이머 정리
-              if (demoTimerRef.current) {
-                clearInterval(demoTimerRef.current);
-                demoTimerRef.current = null;
-              }
-              setDemoSeconds(null);
+              setIsDemoRunning(false);
             });
           }}
         >
-          {demoSeconds !== null ? `⏱ ${demoSeconds}초` : '데모 시작'}
+          데모 시작
         </Button>
       </div>
 

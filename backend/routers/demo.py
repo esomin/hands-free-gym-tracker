@@ -14,6 +14,11 @@ router = APIRouter(prefix="/demo", tags=["demo"])
 # 실행 중인 시나리오 태스크 (user_id → asyncio.Task)
 _running: dict[str, asyncio.Task] = {}
 
+
+def is_demo_running(user_id: str) -> bool:
+    """해당 유저의 데모 시나리오가 실행 중인지 반환"""
+    return user_id in _running and not _running[user_id].done()
+
 # 시나리오 기구 목록 및 세트 데이터
 _DEMO_EQUIPMENT = [
     {

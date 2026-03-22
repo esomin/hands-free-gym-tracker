@@ -96,6 +96,7 @@ export type SessionSnapshot = {
   tumbler_state:   'moving' | 'settled';
   equipment:       SessionEquipment | null;
   in_progress_log: SessionInProgressLog | null;
+  is_demo_running: boolean;
 };
 
 export async function fetchSessionSnapshot(userId: string): Promise<SessionSnapshot> {

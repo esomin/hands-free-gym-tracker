@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from db.mongo_client import workout_logs
 from pipeline.mag_fingerprint import fingerprint_store
+from routers.demo import is_demo_running
 from state.session_cache import session_cache
 
 router = APIRouter(prefix="/session", tags=["session"])
@@ -36,6 +37,8 @@ class SessionSnapshotResponse(BaseModel):
     equipment:        EquipmentInfo | None
     # 진행 중인 운동 로그 (없으면 None)
     in_progress_log:  InProgressLogInfo | None
+    # 데모 시나리오 실행 중 여부
+    is_demo_running:  bool
 
 
 # ── 엔드포인트 ────────────────────────────────────────────────────────────────
@@ -68,6 +71,7 @@ async def get_session_snapshot(user_id: str):
             tumbler_state='moving',
             equipment=None,
             in_progress_log=None,
+            is_demo_running=is_demo_running(user_id),
         )
 
     # 기구 정보: current_equipment_id로 fingerprint_store에서 이름 조회
@@ -104,4 +108,5 @@ async def get_session_snapshot(user_id: str):
         tumbler_state=session.tumbler_state,
         equipment=equipment,
         in_progress_log=in_progress_log,
+        is_demo_running=is_demo_running(user_id),
     )
