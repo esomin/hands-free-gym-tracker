@@ -6,7 +6,9 @@ export type SensorEventType =
   | 'set_logged'
   | 'equipment_unknown'
   | 'demo_workout_started'
-  | 'demo_workout_completed';
+  | 'demo_workout_completed'
+  | 'demo_scenario_completed'
+  | 'demo_logs_cleared';
 
 export type WebSocketMessage<T = unknown> = {
   type: SensorEventType;
@@ -91,12 +93,14 @@ export type DemoWorkoutCompletedPayload = {
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 export type WebSocketEvent =
-  | { type: 'equipment_detected';    payload: EquipmentDetectedPayload }
-  | { type: 'tumbler_state_changed'; payload: TumblerStatePayload }
-  | { type: 'set_logged';            payload: SetLogPayload }
-  | { type: 'equipment_unknown';     payload: UnknownEquipmentPayload }
-  | { type: 'demo_workout_started';  payload: DemoWorkoutStartedPayload }
-  | { type: 'demo_workout_completed'; payload: DemoWorkoutCompletedPayload };
+  | { type: 'equipment_detected';      payload: EquipmentDetectedPayload }
+  | { type: 'tumbler_state_changed';   payload: TumblerStatePayload }
+  | { type: 'set_logged';              payload: SetLogPayload }
+  | { type: 'equipment_unknown';       payload: UnknownEquipmentPayload }
+  | { type: 'demo_workout_started';    payload: DemoWorkoutStartedPayload }
+  | { type: 'demo_workout_completed';  payload: DemoWorkoutCompletedPayload }
+  | { type: 'demo_scenario_completed'; payload: Record<string, never> }
+  | { type: 'demo_logs_cleared';       payload: Record<string, never> };
 
 export type UseWebSocketReturn = {
   status: WebSocketStatus;

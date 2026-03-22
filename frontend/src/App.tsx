@@ -59,6 +59,10 @@ function App() {
     nextEquipment: EquipmentDetectedPayload | null;
   }>({ open: false, nextEquipment: null });
 
+  // 데모 실행 중 카운트업 타이머 상태
+  const [demoSeconds, setDemoSeconds] = useState<number | null>(null);
+  const demoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // 마운트 시 세션 스냅샷으로 상태 복원 (새로고침 / 앱 재진입 대응)
   useEffect(() => {
     fetchSessionSnapshot(USER_ID)
@@ -109,6 +113,18 @@ function App() {
     if (lastEvent.type === 'demo_workout_completed') {
       setInProgressLogId(null);
       setInProgressSets([]);
+      refetch();
+    }
+    // 전체 시나리오 완료 시에만 타이머 정지 및 버튼 복귀
+    if (lastEvent.type === 'demo_scenario_completed') {
+      if (demoTimerRef.current) {
+        clearInterval(demoTimerRef.current);
+        demoTimerRef.current = null;
+      }
+      setDemoSeconds(null);
+    }
+    // 데모 로그 삭제 완료 시 대시보드 갱신
+    if (lastEvent.type === 'demo_logs_cleared') {
       refetch();
     }
   }, [lastEvent]);
@@ -216,9 +232,24 @@ function App() {
           className="w-30!"
           variant="light"
           color="violet"
-          onClick={() => startDemoScenario(USER_ID).catch(() => { })}
+          disabled={demoSeconds !== null}
+          onClick={() => {
+            // 데모 시작 시 카운트업 타이머 시작
+            setDemoSeconds(0);
+            demoTimerRef.current = setInterval(() => {
+              setDemoSeconds((s) => (s !== null ? s + 1 : 0));
+            }, 1000);
+            startDemoScenario(USER_ID).catch(() => {
+              // 요청 실패 시 타이머 정리
+              if (demoTimerRef.current) {
+                clearInterval(demoTimerRef.current);
+                demoTimerRef.current = null;
+              }
+              setDemoSeconds(null);
+            });
+          }}
         >
-          데모 시작
+          {demoSeconds !== null ? `⏱ ${demoSeconds}초` : '데모 시작'}
         </Button>
       </div>
 

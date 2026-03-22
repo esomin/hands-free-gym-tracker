@@ -98,6 +98,7 @@ async def _run_scenario(user_id: str) -> None:
             "started_at":     now,
             "ended_at":       None,
             "created_at":     now,
+            "is_demo":        True,
         })
         log_id = str(result.inserted_id)
 
@@ -126,13 +127,38 @@ async def _run_scenario(user_id: str) -> None:
     # 최종: 이동 중 (idle 복귀)
     await tumbler("moving")
 
+    # 전체 시나리오 완료 알림
+    await broadcast({
+        "type": "demo_scenario_completed",
+        "payload": {},
+        "timestamp": now_iso(),
+    })
+
+    # 10초 후 이 데모에서 생성한 로그 삭제
+    await asyncio.sleep(10)
+    await workout_logs().delete_many({"user_id": user_id, "is_demo": True})
+    await broadcast({
+        "type": "demo_logs_cleared",
+        "payload": {},
+        "timestamp": now_iso(),
+    })
+
 
 @router.post("/scenario/{user_id}", status_code=202)
 async def start_scenario(user_id: str):
     """자동 시나리오 데모를 시작한다. 이미 실행 중이면 재시작한다."""
-    # 기존 실행 중인 태스크가 있으면 취소
+    # 기존 실행 중인 태스크가 있으면 취소 (10초 대기 중 재시작 포함)
     if user_id in _running:
         _running[user_id].cancel()
+
+    # 이전 데모 로그가 남아 있으면 즉시 삭제 후 프론트에 갱신 알림
+    result = await workout_logs().delete_many({"user_id": user_id, "is_demo": True})
+    if result.deleted_count > 0:
+        await manager.broadcast(user_id, {
+            "type": "demo_logs_cleared",
+            "payload": {},
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
 
     task = asyncio.create_task(_run_scenario(user_id))
     _running[user_id] = task
