@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import APIRouter
 
-from db.mongo_client import user_routines, workout_logs
+from pymongo.errors import DuplicateKeyError
+
+from db.mongo_client import equipment_fingerprints, user_routines, workout_logs
 from websocket.handler import manager
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -166,6 +168,24 @@ async def start_scenario(user_id: str):
     # 기존 시나리오 태스크 취소
     if user_id in _running:
         _running[user_id].cancel()
+
+    # 데모 기구를 equipment_fingerprints에 등록 (없을 경우에만 삽입)
+    # — user_routines와 정합성 유지: 양쪽에 데모 기구 데이터가 존재하도록
+    now = datetime.now(timezone.utc)
+    for equip in _DEMO_EQUIPMENT:
+        try:
+            await equipment_fingerprints().update_one(
+                {"equipment_id": equip["id"]},
+                {"$set": {
+                    "equipment_id":   equip["id"],
+                    "equipment_name": equip["name"],
+                    "vector":         [],   # 데모 기구는 ML 매칭 불필요 → 빈 벡터
+                    "registered_at":  now,
+                }},
+                upsert=True,
+            )
+        except DuplicateKeyError:
+            pass  # 동일 이름의 실제 기구가 이미 등록된 경우 무시
 
     # 이전 데모 로그가 남아 있으면 즉시 삭제 후 프론트에 갱신 알림
     result = await workout_logs().delete_many({"user_id": user_id, "is_demo": True})

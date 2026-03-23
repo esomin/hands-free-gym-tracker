@@ -34,7 +34,7 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
     if (!data) return;
     const isNew = data.basedOnDate === null || data.suggestedSetsDetail.length === 0;
     const initialSets = isNew
-      ? [{ weight: 15, reps: 12 }]
+      ? [{ weight: 15, reps: 12 }, { weight: 15, reps: 12 }, { weight: 15, reps: 12 }]
       : data.suggestedSetsDetail.map((s) => ({ weight: s.weight, reps: s.reps }));
     setSets(initialSets);
     setErrors(initialSets.map(() => ({})));
