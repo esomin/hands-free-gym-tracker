@@ -122,8 +122,12 @@ function App() {
     if (lastEvent.type === 'demo_scenario_completed') {
       setIsDemoRunning(false);
     }
-    // 데모 로그 삭제 완료 시 대시보드 갱신
+    // 데모 로그 삭제 완료 시: 프론트엔드 상태 초기화 + 대시보드 갱신
+    // (재시작 시 이전 inProgressLogId가 남아 equipment_detected를 막는 것을 방지)
     if (lastEvent.type === 'demo_logs_cleared') {
+      setInProgressLogId(null);
+      setInProgressSets([]);
+      setLogActionModal({ open: false, nextEquipment: null });
       refetch();
     }
   }, [lastEvent]);
@@ -233,6 +237,10 @@ function App() {
           color="violet"
           disabled={isDemoRunning}
           onClick={() => {
+            // 데모 시작 전 잔류 상태 초기화 (이전 demo inProgressLogId 등)
+            setInProgressLogId(null);
+            setInProgressSets([]);
+            setLogActionModal({ open: false, nextEquipment: null });
             setIsDemoRunning(true);
             startDemoScenario(USER_ID).catch(() => {
               setIsDemoRunning(false);

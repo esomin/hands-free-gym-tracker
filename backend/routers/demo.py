@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import APIRouter
 
-from db.mongo_client import workout_logs
+from db.mongo_client import user_routines, workout_logs
 from websocket.handler import manager
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -70,7 +70,21 @@ async def _run_scenario(user_id: str) -> None:
         await tumbler("settled")
         await asyncio.sleep(1)
 
-        # 3. 기구 감지
+        # 3. 기구 감지 전 user_routines 선등록
+        # — equipment_detected → fetchForEquipment 호출 시 SmartDefault에 데모 데이터가 채워지도록
+        last_set = equip["sets"][-1]
+        await user_routines().update_one(
+            {"user_id": user_id, "equipment_id": equip["id"]},
+            {"$set": {
+                "last_weight":       last_set["weight"],
+                "last_reps":         last_set["reps"],
+                "last_sets":         len(equip["sets"]),
+                "last_performed_at": datetime.now(timezone.utc),
+            }},
+            upsert=True,
+        )
+
+        # 4. 기구 감지
         await broadcast({
             "type": "equipment_detected",
             "payload": {
@@ -83,7 +97,7 @@ async def _run_scenario(user_id: str) -> None:
         })
         await asyncio.sleep(3)
 
-        # 4. 운동 로그 생성 (in_progress)
+        # 5. 운동 로그 생성 (in_progress)
         now = datetime.now(timezone.utc)
         sets_doc = [
             {
@@ -117,7 +131,7 @@ async def _run_scenario(user_id: str) -> None:
         })
         await asyncio.sleep(8)
 
-        # 5. 운동 완료
+        # 6. 운동 완료
         await workout_logs().update_one(
             {"_id": ObjectId(log_id)},
             {"$set": {"status": "completed", "ended_at": datetime.now(timezone.utc)}},
