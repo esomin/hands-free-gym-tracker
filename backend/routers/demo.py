@@ -78,13 +78,10 @@ async def _run_scenario(user_id: str) -> None:
 
         # 3. 기구 감지 전 user_routines 선등록
         # — equipment_detected → fetchForEquipment 호출 시 SmartDefault에 데모 데이터가 채워지도록
-        last_set = equip["sets"][-1]
         await user_routines().update_one(
             {"user_id": user_id, "equipment_id": equip["id"]},
             {"$set": {
-                "last_weight":       last_set["weight"],
-                "last_reps":         last_set["reps"],
-                "last_sets":         len(equip["sets"]),
+                "last_sets_detail":  [{"weight": s["weight"], "reps": s["reps"]} for s in equip["sets"]],
                 "last_performed_at": datetime.now(timezone.utc),
             }},
             upsert=True,

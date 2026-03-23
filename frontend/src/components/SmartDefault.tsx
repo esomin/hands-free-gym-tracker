@@ -32,11 +32,10 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
   // data가 바뀌면 제안값으로 세트 목록 초기화
   useEffect(() => {
     if (!data) return;
-    const isNew = data.basedOnDate === null;
-    const initialSets = Array.from({ length: data.suggestedSets }, () => ({
-      weight: isNew ? 15 : data.suggestedWeight,
-      reps: isNew ? 12 : data.suggestedReps,
-    }));
+    const isNew = data.basedOnDate === null || data.suggestedSetsDetail.length === 0;
+    const initialSets = isNew
+      ? [{ weight: 15, reps: 12 }]
+      : data.suggestedSetsDetail.map((s) => ({ weight: s.weight, reps: s.reps }));
     setSets(initialSets);
     setErrors(initialSets.map(() => ({})));
   }, [data]);

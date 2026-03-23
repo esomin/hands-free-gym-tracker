@@ -12,15 +12,18 @@ router = APIRouter(prefix="/routine", tags=["routine"])
 
 # ── Pydantic 모델 ─────────────────────────────────────────────────────────────
 
+class SetDetail(BaseModel):
+    # 세트 무게 (kg)
+    weight: float
+    # 세트 반복 횟수
+    reps: int
+
+
 class SmartDefaultResponse(BaseModel):
     # 조회 기준 기구 ID
     equipment_id: str
-    # 제안 무게 (kg). 과거 기록 없으면 0.0
-    suggested_weight: float
-    # 제안 반복 횟수. 과거 기록 없으면 0
-    suggested_reps: int
-    # 제안 세트 수. 과거 기록 없으면 1
-    suggested_sets: int
+    # 이전 운동의 세트별 무게·횟수 목록. 신규 기구면 빈 리스트
+    suggested_sets_detail: list[SetDetail]
     # 참조한 과거 운동 날짜. 신규 기구면 None
     based_on_date: datetime | None
 
@@ -44,62 +47,57 @@ async def get_smart_default(
         sort=[("last_performed_at", -1)],
     )
 
-    if routine:
+    if routine and routine.get("last_sets_detail"):
         return SmartDefaultResponse(
             equipment_id=equipment_id,
-            suggested_weight=routine.get("last_weight", 0.0),
-            suggested_reps=routine.get("last_reps", 0),
-            suggested_sets=routine.get("last_sets", 1),
+            suggested_sets_detail=[
+                SetDetail(weight=s["weight"], reps=s["reps"])
+                for s in routine["last_sets_detail"]
+            ],
             based_on_date=routine.get("last_performed_at"),
         )
 
-    # 루틴 기록이 없으면 workout_logs 에서 마지막 세트 데이터로 폴백
+    # 루틴 기록이 없으면 workout_logs 에서 전체 세트 데이터로 폴백
     last_log = await workout_logs().find_one(
         {"user_id": user_id, "equipment_id": equipment_id},
         sort=[("started_at", -1)],
     )
 
     if last_log and last_log.get("sets"):
-        # 마지막 세트 기준으로 제안
-        sets = last_log["sets"]
-        last_set = sets[-1]
         return SmartDefaultResponse(
             equipment_id=equipment_id,
-            suggested_weight=last_set.get("weight", 0.0),
-            suggested_reps=last_set.get("reps", 0),
-            suggested_sets=len(sets),
+            suggested_sets_detail=[
+                SetDetail(weight=s.get("weight", 0.0), reps=s.get("reps", 0))
+                for s in last_log["sets"]
+            ],
             based_on_date=last_log.get("started_at"),
         )
 
-    # 완전히 새로운 기구 — 기본값 반환
+    # 완전히 새로운 기구 — 빈 목록 반환
     return SmartDefaultResponse(
         equipment_id=equipment_id,
-        suggested_weight=0.0,
-        suggested_reps=0,
-        suggested_sets=1,
+        suggested_sets_detail=[],
         based_on_date=None,
     )
 
 
+class UpsertRoutineBody(BaseModel):
+    user_id: str
+    equipment_id: str
+    sets_detail: list[SetDetail]
+
+
 @router.post("/upsert", status_code=200)
-async def upsert_routine(
-    user_id: str = Query(...),
-    equipment_id: str = Query(...),
-    weight: float = Query(...),
-    reps: int = Query(...),
-    sets: int = Query(...),
-):
+async def upsert_routine(body: UpsertRoutineBody):
     """
     운동 세션 종료 후 user_routines 컬렉션을 갱신한다.
     기존 기록이 있으면 업데이트, 없으면 새로 삽입한다.
     """
     now = datetime.now()
     await user_routines().update_one(
-        {"user_id": user_id, "equipment_id": equipment_id},
+        {"user_id": body.user_id, "equipment_id": body.equipment_id},
         {"$set": {
-            "last_weight":       weight,
-            "last_reps":         reps,
-            "last_sets":         sets,
+            "last_sets_detail":  [s.model_dump() for s in body.sets_detail],
             "last_performed_at": now,
         }},
         upsert=True,

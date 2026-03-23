@@ -71,9 +71,7 @@ export type DashboardLog = {
 
 export type SmartDefaultData = {
   equipmentId: string;
-  suggestedWeight: number;
-  suggestedReps: number;
-  suggestedSets: number;
+  suggestedSetsDetail: { weight: number; reps: number }[]; // 이전 운동 세트별 무게·횟수. 신규 기구면 빈 배열
   basedOnDate: string | null; // 과거 기록 없으면 null
 };
 

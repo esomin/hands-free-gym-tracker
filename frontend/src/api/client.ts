@@ -161,11 +161,9 @@ export async function startDemoScenario(userId: string): Promise<void> {
 // ── 루틴 API ──────────────────────────────────────────────────────────────────
 
 type SmartDefaultResponse = {
-  equipment_id:     string;
-  suggested_weight: number;
-  suggested_reps:   number;
-  suggested_sets:   number;
-  based_on_date:    string | null;
+  equipment_id:          string;
+  suggested_sets_detail: { weight: number; reps: number }[];
+  based_on_date:         string | null;
 };
 
 export async function fetchSmartDefault(
@@ -175,10 +173,8 @@ export async function fetchSmartDefault(
   const params = new URLSearchParams({ user_id: userId, equipment_id: equipmentId });
   const data = await apiFetch<SmartDefaultResponse>(`/api/routine/smart-default?${params}`);
   return {
-    equipmentId:     data.equipment_id,
-    suggestedWeight: data.suggested_weight,
-    suggestedReps:   data.suggested_reps,
-    suggestedSets:   data.suggested_sets,
-    basedOnDate:     data.based_on_date,
+    equipmentId:         data.equipment_id,
+    suggestedSetsDetail: data.suggested_sets_detail,
+    basedOnDate:         data.based_on_date,
   };
 }
