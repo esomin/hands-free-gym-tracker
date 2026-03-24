@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import { ActionIcon, Button, Card, NumberInput, Skeleton, Text } from '@mantine/core';
+import { ActionIcon, Badge, Button, Card, NumberInput, Skeleton, Text } from '@mantine/core';
 
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import type { SmartDefaultData } from '../types';
@@ -90,15 +90,16 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
   const isNew = data.basedOnDate === null;
 
   return (
-    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]">
-      <div className="flex items-center justify-between mb-2">
+    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]" style={{ borderLeft: '4px solid #3b82f6' }}>
+      <div className="flex items-center justify-between mb-1">
         <Text fw={600} size="sm" c="dimmed">목표 설정</Text>
-        {!isNew && data.basedOnDate && (
-          <Text size="xs" c="dimmed">
-            {new Date(data.basedOnDate).toLocaleDateString('ko-KR')} 기록 기준
-          </Text>
-        )}
+        <Badge color="blue" variant="light" size="sm">운동 준비 중</Badge>
       </div>
+      {!isNew && data.basedOnDate && (
+        <Text size="xs" c="dimmed" mb="sm">
+          {new Date(data.basedOnDate).toLocaleDateString('ko-KR')} 기록 자동 입력
+        </Text>
+      )}
       {isNew && (
         <Text size="xs" c="blue" mb="sm">
           처음 사용하는 기구입니다. 세트별 목표 무게와 횟수를 입력하세요.

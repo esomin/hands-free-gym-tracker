@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ActionIcon, Button, Card, NumberInput, Text } from '@mantine/core';
+import { ActionIcon, Badge, Button, Card, NumberInput, Text } from '@mantine/core';
 
 import type { SetEntry } from './SmartDefault';
 
@@ -55,8 +55,10 @@ export function WorkoutInProgress({ sets, onComplete, onUpdateSets }: WorkoutInP
   }
 
   return (
-    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]">
-      <Text fw={600} size="sm" c="dimmed" mb="xs">운동 기록 중</Text>
+    <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]" style={{ borderLeft: '4px solid #22c55e' }}>
+      <div className="flex justify-end mb-2">
+        <Badge color="green" variant="light" size="sm" className="animate-pulse">운동 중</Badge>
+      </div>
       {isEditing ? (
         <>
           {/* 편집 모드 */}
