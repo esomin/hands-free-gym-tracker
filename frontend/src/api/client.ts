@@ -123,16 +123,16 @@ type WorkoutLogResponse = {
   ended_at:       string | null;
 };
 
-export async function fetchTodayLogs(userId: string): Promise<DashboardLog[]> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
+export async function fetchLogsByDate(userId: string, date: Date): Promise<DashboardLog[]> {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
 
   const params = new URLSearchParams({
     user_id: userId,
-    start:   today.toISOString(),
-    end:     tomorrow.toISOString(),
+    start:   start.toISOString(),
+    end:     end.toISOString(),
   });
   const logs = await apiFetch<WorkoutLogResponse[]>(`/api/logs/?${params}`);
 

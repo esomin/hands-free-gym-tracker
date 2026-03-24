@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { notifications } from '@mantine/notifications';
 
-import { fetchTodayLogs } from '../api/client';
+import { fetchLogsByDate } from '../api/client';
 import type { DashboardLog } from '../types';
 
 type UseDashboardReturn = {
@@ -11,14 +11,17 @@ type UseDashboardReturn = {
   refetch:   () => void;
 };
 
-export function useDashboard(userId: string): UseDashboardReturn {
+export function useDashboard(userId: string, date: Date = new Date()): UseDashboardReturn {
   const [logs,      setLogs]      = useState<DashboardLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchTick, setFetchTick] = useState(0);
 
+  // date 객체는 매 렌더마다 새로 생성되므로 타임스탬프(숫자)로 비교
+  const dateTs = date.getTime();
+
   useEffect(() => {
     setIsLoading(true);
-    fetchTodayLogs(userId)
+    fetchLogsByDate(userId, new Date(dateTs))
       .then(setLogs)
       .catch((e: Error) => {
         notifications.show({
@@ -28,7 +31,7 @@ export function useDashboard(userId: string): UseDashboardReturn {
         });
       })
       .finally(() => setIsLoading(false));
-  }, [userId, fetchTick]);
+  }, [userId, dateTs, fetchTick]);
 
   function refetch() {
     setFetchTick((n) => n + 1);
