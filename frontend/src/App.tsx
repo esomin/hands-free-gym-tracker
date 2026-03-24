@@ -14,6 +14,8 @@ import {
 } from './api/client';
 import { ERROR_MESSAGES } from './constants/errorMessages';
 import { Dashboard } from './components/Dashboard';
+import { DemoTimeline, buildDemoLogEntry } from './components/DemoTimeline';
+import type { DemoLogEntry } from './components/DemoTimeline';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
 import { SmartDefault } from './components/SmartDefault';
@@ -29,6 +31,7 @@ import type {
 } from './types';
 
 const USER_ID = 'user-1';
+
 
 const STATUS_BADGE: Record<string, { color: string; label: string }> = {
   connecting: { color: 'yellow', label: '연결 중' },
@@ -62,6 +65,10 @@ function App() {
   // 데모 실행 중 여부 (버튼 비활성화에 사용)
   const [isDemoRunning, setIsDemoRunning] = useState(false);
 
+  // 데모 타임라인 로그
+  const [demoLogs, setDemoLogs] = useState<DemoLogEntry[]>([]);
+  const demoStartedAt = useRef<number | null>(null);
+
   // 마운트 시 세션 스냅샷으로 상태 복원 (새로고침 / 앱 재진입 대응)
   useEffect(() => {
     fetchSessionSnapshot(USER_ID)
@@ -94,6 +101,16 @@ function App() {
 
   useEffect(() => {
     if (!lastEvent) return;
+
+    // 데모 이벤트 수신 시 타임라인 로그에 항목 추가
+    if (demoStartedAt.current !== null) {
+      const elapsed = Math.floor((Date.now() - demoStartedAt.current) / 1000);
+      const entry = buildDemoLogEntry(
+        { type: lastEvent.type, payload: lastEvent.payload as Record<string, unknown> },
+        elapsed,
+      );
+      if (entry) setDemoLogs((prev) => [...prev, entry]);
+    }
 
     if (lastEvent.type === 'equipment_detected') {
       // 기구 변경 시 미완료 로그가 있으면 처리 모달을 띄움
@@ -241,9 +258,12 @@ function App() {
             setInProgressLogId(null);
             setInProgressSets([]);
             setLogActionModal({ open: false, nextEquipment: null });
+            setDemoLogs([]);
+            demoStartedAt.current = Date.now();
             setIsDemoRunning(true);
             startDemoScenario(USER_ID).catch(() => {
               setIsDemoRunning(false);
+              demoStartedAt.current = null;
             });
           }}
         >
@@ -252,7 +272,7 @@ function App() {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row">
-        <div className="w-full md:w-[40%]">
+        <div className="w-full md:w-[33%]">
           <EquipmentStatus equipment={equipment} tumblerState={tumblerState} inProgress={inProgressLogId !== null} />
 
           {/* Phase 3: 운동 진행 중 */}
@@ -274,8 +294,12 @@ function App() {
           )}
         </div>
 
-        <div className="w-full md:w-[40%]">
+        <div className="w-full md:w-[33%]">
           <Dashboard logs={logs} isLoading={isDashboardLoading} />
+        </div>
+
+        <div className="w-full md:w-[33%]">
+          <DemoTimeline entries={demoLogs} />
         </div>
       </div>
 
@@ -305,6 +329,7 @@ function App() {
         onRegister={handleRegister}
         onDismiss={() => setUnknownFingerprint(null)}
       />
+
     </div>
   );
 }
