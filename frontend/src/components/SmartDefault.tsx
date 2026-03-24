@@ -91,16 +91,17 @@ export function SmartDefault({ data, isLoading, onConfirm }: SmartDefaultProps) 
 
   return (
     <Card shadow="sm" padding="md" radius="md" withBorder className="w-full mt-3 min-w-[300px]">
-      <Text fw={600} size="sm" c="dimmed" mb="xs">목표 설정</Text>
-
+      <div className="flex items-center justify-between mb-2">
+        <Text fw={600} size="sm" c="dimmed">목표 설정</Text>
+        {!isNew && data.basedOnDate && (
+          <Text size="xs" c="dimmed">
+            {new Date(data.basedOnDate).toLocaleDateString('ko-KR')} 기록 기준
+          </Text>
+        )}
+      </div>
       {isNew && (
         <Text size="xs" c="blue" mb="sm">
           처음 사용하는 기구입니다. 세트별 목표 무게와 횟수를 입력하세요.
-        </Text>
-      )}
-      {!isNew && data.basedOnDate && (
-        <Text size="xs" c="dimmed" mb="sm">
-          {new Date(data.basedOnDate).toLocaleDateString('ko-KR')} 기록 기준
         </Text>
       )}
 

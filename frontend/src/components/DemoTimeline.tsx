@@ -34,7 +34,6 @@ export function DemoTimeline({ entries }: DemoTimelineProps) {
   return (
     <div
       style={{
-        marginTop:    '0.75rem',
         background:   '#f8fafc',
         border:       '1px solid #e2e8f0',
         borderRadius: '0.5rem',
@@ -43,18 +42,17 @@ export function DemoTimeline({ entries }: DemoTimelineProps) {
     >
       <div
         style={{
-          fontSize:     '0.7rem',
-          fontWeight:   700,
-          color:        '#94a3b8',
+          fontSize:      '0.7rem',
+          fontWeight:    700,
+          color:         '#94a3b8',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
-          marginBottom: '0.5rem',
+          marginBottom:  '0.5rem',
         }}
       >
         Demo Log
       </div>
-
-      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+      <div>
         {entries.map((entry) => (
           <div
             key={entry.id}

@@ -273,6 +273,9 @@ function App() {
 
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="w-full md:w-[33%]">
+          <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+            <Text fw={600} size="sm" c="dimmed">기구 &amp; 운동</Text>
+          </div>
           <EquipmentStatus equipment={equipment} tumblerState={tumblerState} inProgress={inProgressLogId !== null} />
 
           {/* Phase 3: 운동 진행 중 */}
@@ -295,10 +298,14 @@ function App() {
         </div>
 
         <div className="w-full md:w-[33%]">
+          <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+            <Text fw={600} size="sm" c="dimmed">오늘의 기록</Text>
+          </div>
           <Dashboard logs={logs} isLoading={isDashboardLoading} />
         </div>
 
         <div className="w-full md:w-[33%]">
+          <div style={{ height: '48px' }} />
           <DemoTimeline entries={demoLogs} />
         </div>
       </div>

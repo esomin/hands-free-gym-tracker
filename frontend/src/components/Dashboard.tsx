@@ -50,7 +50,7 @@ export function Dashboard({ logs, isLoading }: DashboardProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {logs.map((log) => (
+{logs.map((log) => (
         <Card key={log.id} shadow="sm" padding="md" radius="md" withBorder>
           {/* 카드 헤더: 기구명 + 시작~완료 (소요시간) */}
           <div className="flex items-baseline justify-between mb-2">
