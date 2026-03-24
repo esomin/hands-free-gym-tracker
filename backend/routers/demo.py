@@ -4,11 +4,13 @@ import asyncio
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from pymongo.errors import DuplicateKeyError
 
 from db.mongo_client import equipment_fingerprints, user_routines, workout_logs
+from state.session_cache import session_cache
 from websocket.handler import manager
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -160,6 +162,99 @@ async def _run_scenario(user_id: str) -> None:
         "payload":   {},
         "timestamp": now_iso(),
     })
+
+
+# ── inject / reset 엔드포인트 ────────────────────────────────────────────────
+
+# Demo Panel에서 주입 가능한 이벤트 타입 집합
+INJECTABLE_EVENT_TYPES: set[str] = {
+    "tumbler_state_changed",
+    "equipment_detected",
+}
+
+
+class InjectEventRequest(BaseModel):
+    user_id: str
+    type:    str    # INJECTABLE_EVENT_TYPES 중 하나
+    payload: dict
+
+
+@router.post("/inject", status_code=202)
+async def inject_event(body: InjectEventRequest):
+    """Demo Panel에서 지정한 이벤트를 해당 user_id의 WebSocket으로 직접 브로드캐스트한다."""
+    # 허용되지 않은 이벤트 타입은 400 반환
+    if body.type not in INJECTABLE_EVENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"허용되지 않은 이벤트 타입: {body.type}")
+
+    # equipment_detected 주입 시: equipment_fingerprints + user_routines 선등록 보장
+    # — start_scenario를 거치지 않고 Demo Panel만 사용할 경우에도 SmartDefault가 정상 동작하도록
+    if body.type == "equipment_detected":
+        eq_id   = body.payload.get("equipmentId")
+        eq_name = body.payload.get("equipmentName")
+        if eq_id and eq_name:
+            now = datetime.now(timezone.utc)
+            # equipment_fingerprints: 없으면 빈 벡터로 삽입
+            try:
+                await equipment_fingerprints().update_one(
+                    {"equipment_id": eq_id},
+                    {"$set": {
+                        "equipment_id":   eq_id,
+                        "equipment_name": eq_name,
+                        "vector":         [],
+                        "registered_at":  now,
+                    }},
+                    upsert=True,
+                )
+            except DuplicateKeyError:
+                pass  # 동일 이름의 다른 기구가 이미 등록된 경우 무시
+            # user_routines: 최초 inject라면 데모 기본 세트 데이터로 초기화
+            demo_sets = next(
+                (e["sets"] for e in _DEMO_EQUIPMENT if e["id"] == eq_id),
+                [],
+            )
+            if demo_sets:
+                await user_routines().update_one(
+                    {"user_id": body.user_id, "equipment_id": eq_id},
+                    {"$setOnInsert": {
+                        "last_sets_detail":  [{"weight": s["weight"], "reps": s["reps"]} for s in demo_sets],
+                        "last_performed_at": now,
+                    }},
+                    upsert=True,
+                )
+
+    await manager.broadcast(body.user_id, {
+        "type":      body.type,
+        "payload":   body.payload,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"injected": True}
+
+
+@router.post("/reset/{user_id}", status_code=202)
+async def reset_state(user_id: str):
+    """
+    데모 상태를 초기화한다.
+    1. in_progress 운동 로그 삭제
+    2. 세션 캐시 상태 초기화 (텀블러·기구·지자기 벡터)
+    3. tumbler_state_changed(moving) 브로드캐스트 → 프론트 기존 핸들러가 상태 반영
+    """
+    # 1. in_progress 로그 삭제
+    await workout_logs().delete_many({"user_id": user_id, "status": "in_progress"})
+
+    # 2. 세션 캐시 초기화
+    session = session_cache.get(user_id)
+    if session:
+        session.tumbler_state        = "moving"
+        session.current_equipment_id = None
+        session.pending_mag_vector   = None
+
+    # 3. 프론트엔드에 이동 중 이벤트 브로드캐스트
+    await manager.broadcast(user_id, {
+        "type":      "tumbler_state_changed",
+        "payload":   {"state": "moving", "transitionedAt": datetime.now(timezone.utc).isoformat()},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"reset": True}
 
 
 @router.post("/scenario/{user_id}", status_code=202)

@@ -158,6 +158,22 @@ export async function startDemoScenario(userId: string): Promise<void> {
   await apiFetch(`/api/demo/scenario/${userId}`, { method: 'POST' });
 }
 
+export async function injectDemoEvent(
+  userId:  string,
+  type:    'tumbler_state_changed' | 'equipment_detected',
+  payload: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch('/api/demo/inject', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ user_id: userId, type, payload }),
+  });
+}
+
+export async function resetDemoState(userId: string): Promise<void> {
+  await apiFetch(`/api/demo/reset/${userId}`, { method: 'POST' });
+}
+
 // ── 루틴 API ──────────────────────────────────────────────────────────────────
 
 type SmartDefaultResponse = {

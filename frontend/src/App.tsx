@@ -14,6 +14,7 @@ import {
 } from './api/client';
 import { ERROR_MESSAGES } from './constants/errorMessages';
 import { Dashboard } from './components/Dashboard';
+import { DemoPanel } from './components/DemoPanel';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
 import { SmartDefault } from './components/SmartDefault';
@@ -29,6 +30,11 @@ import type {
 } from './types';
 
 const USER_ID = 'user-1';
+
+// ?demo=true 쿼리 파라미터 또는 VITE_DEMO_MODE=true 환경변수로 패널 노출 제어
+const isDemoMode =
+  import.meta.env.VITE_DEMO_MODE === 'true' ||
+  new URLSearchParams(window.location.search).get('demo') === 'true';
 
 const STATUS_BADGE: Record<string, { color: string; label: string }> = {
   connecting: { color: 'yellow', label: '연결 중' },
@@ -195,6 +201,16 @@ function App() {
     applyNextEquipment();
   }
 
+  // Demo Panel의 초기화 버튼 완료 후 프론트엔드 상태 리셋
+  function handleDemoReset() {
+    setEquipment(null);
+    setTumblerState(null);
+    setInProgressLogId(null);
+    setInProgressSets([]);
+    setLogActionModal({ open: false, nextEquipment: null });
+    refetch();
+  }
+
   async function handleComplete() {
     if (!inProgressLogId) return;
     try {
@@ -305,6 +321,9 @@ function App() {
         onRegister={handleRegister}
         onDismiss={() => setUnknownFingerprint(null)}
       />
+
+      {/* Demo Panel: ?demo=true 또는 VITE_DEMO_MODE=true일 때만 표시 */}
+      {isDemoMode && <DemoPanel userId={USER_ID} onReset={handleDemoReset} />}
     </div>
   );
 }
