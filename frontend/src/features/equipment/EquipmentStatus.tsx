@@ -1,6 +1,6 @@
 import { Badge, Card, Text } from '@mantine/core';
 
-import type { EquipmentDetectedPayload, TumblerStatePayload } from '../types';
+import type { EquipmentDetectedPayload, TumblerStatePayload } from '../../types';
 
 type EquipmentStatusProps = {
   equipment:      EquipmentDetectedPayload | null;

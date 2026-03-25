@@ -2,9 +2,9 @@ import { useState } from 'react';
 
 import { Text } from '@mantine/core';
 
-import type { DashboardLog } from '../types';
+import type { DashboardLog } from '../../types';
 import { Dashboard } from './Dashboard';
-import { WorkoutHistoryCalendar } from './WorkoutHistoryCalendar';
+import { WorkoutHistoryCalendar } from '../history/WorkoutHistoryCalendar';
 
 type WorkoutLogTabsProps = {
   userId: string;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Button, Group, Modal, Text, TextInput } from '@mantine/core';
 
-import { ERROR_MESSAGES } from '../constants/errorMessages';
+import { ERROR_MESSAGES } from '../../constants/errorMessages';
 
 type EquipmentRegisterModalProps = {
   open: boolean;

@@ -4,9 +4,9 @@ import { Calendar } from '@mantine/dates';
 import { Card, Divider, Text } from '@mantine/core';
 import dayjs from 'dayjs';
 
-import { fetchWorkoutDatesInMonth } from '../api/client';
-import { useDashboard } from '../hooks/useDashboard';
-import { Dashboard } from './Dashboard';
+import { fetchWorkoutDatesInMonth } from '../../api/client';
+import { useDashboard } from '../../hooks/useDashboard';
+import { Dashboard } from '../workout/Dashboard';
 
 type WorkoutHistoryCalendarProps = {
   userId: string;

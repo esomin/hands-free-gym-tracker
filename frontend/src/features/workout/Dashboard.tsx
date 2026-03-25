@@ -1,6 +1,6 @@
 import { Card, Text } from '@mantine/core';
 
-import type { DashboardLog } from '../types';
+import type { DashboardLog } from '../../types';
 
 type DashboardProps = {
   logs: DashboardLog[];

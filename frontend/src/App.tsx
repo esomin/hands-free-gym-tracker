@@ -13,15 +13,15 @@ import {
   updateWorkoutLogSets,
 } from './api/client';
 import { ERROR_MESSAGES } from './constants/errorMessages';
-import { Dashboard } from './components/Dashboard';
-import { DemoTimeline, buildDemoLogEntry } from './components/DemoTimeline';
-import { WorkoutHistoryCalendar } from './components/WorkoutHistoryCalendar';
-import type { DemoLogEntry } from './components/DemoTimeline';
-import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
-import { EquipmentStatus } from './components/EquipmentStatus';
-import { SmartDefault } from './components/SmartDefault';
-import type { SetEntry } from './components/SmartDefault';
-import { WorkoutInProgress } from './components/WorkoutInProgress';
+import { Dashboard } from './features/workout/Dashboard';
+import { DemoTimeline, buildDemoLogEntry } from './features/demo/DemoTimeline';
+import { WorkoutHistoryCalendar } from './features/history/WorkoutHistoryCalendar';
+import type { DemoLogEntry } from './features/demo/DemoTimeline';
+import { EquipmentRegisterModal } from './features/equipment/EquipmentRegisterModal';
+import { EquipmentStatus } from './features/equipment/EquipmentStatus';
+import { SmartDefault } from './features/workout/SmartDefault';
+import type { SetEntry } from './features/workout/SmartDefault';
+import { WorkoutInProgress } from './features/workout/WorkoutInProgress';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useDashboard } from './hooks/useDashboard';
 import { useWorkoutLog } from './hooks/useWorkoutLog';

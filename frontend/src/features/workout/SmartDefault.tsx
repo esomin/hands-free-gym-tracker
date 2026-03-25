@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 
 import { ActionIcon, Badge, Button, Card, NumberInput, Skeleton, Text } from '@mantine/core';
 
-import { ERROR_MESSAGES } from '../constants/errorMessages';
-import type { SmartDefaultData } from '../types';
+import { ERROR_MESSAGES } from '../../constants/errorMessages';
+import type { SmartDefaultData } from '../../types';
 
 export type SetEntry = { weight: number; reps: number };
 
