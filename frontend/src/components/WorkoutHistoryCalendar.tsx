@@ -41,9 +41,8 @@ export function WorkoutHistoryCalendar({ userId }: WorkoutHistoryCalendarProps) 
     <div className="flex flex-col gap-3">
 
       {/* 캘린더 블록 */}
-      <Card shadow="sm" padding="sm" radius="md" withBorder>
+      <Card shadow="sm" padding="sm" radius="md" withBorder className="py-8!">
         <Calendar
-          size='lg'
           className='flex justify-center'
           date={currentMonth}
           onDateChange={(date) => setCurrentMonth(new Date(date))}
@@ -77,6 +76,6 @@ export function WorkoutHistoryCalendar({ userId }: WorkoutHistoryCalendarProps) 
         <Dashboard logs={logs} isLoading={isLoading} />
       </Card>
 
-    </div>
+    </div >
   );
 }

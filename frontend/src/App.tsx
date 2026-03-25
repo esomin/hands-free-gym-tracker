@@ -289,7 +289,6 @@ function App() {
             onClick={() => setActiveLogTab(tab)}
             style={{ ...tabBase, ...(activeLogTab === tab ? tabActive : {}) }}
           >
-            {/* <span style={tabLabel}>{tab === 'today' ? '오늘 운동' : '기록'}</span> */}
             <span style={tabLabel}>{tab === 'today' ? 'TODAY' : 'HISTORY'}</span>
           </button>
         ))}

@@ -25,4 +25,8 @@ export const ERROR_MESSAGES = {
     serverError: '서버 오류가 발생했습니다. 문제가 지속되면 고객센터에 문의해주세요.',
     notFound: '요청한 데이터를 찾을 수 없습니다.',
   },
+  workoutHistory: {
+    fetchFailed: '운동 기록 조회에 실패했습니다.',
+    monthFetchFailed: '이달의 운동 현황을 불러오지 못했습니다.',
+  },
 } as const;
