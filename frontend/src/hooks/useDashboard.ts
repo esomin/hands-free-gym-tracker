@@ -16,8 +16,11 @@ export function useDashboard(userId: string, date: Date = new Date()): UseDashbo
   const [isLoading, setIsLoading] = useState(true);
   const [fetchTick, setFetchTick] = useState(0);
 
-  // date 객체는 매 렌더마다 새로 생성되므로 타임스탬프(숫자)로 비교
-  const dateTs = date.getTime();
+  // date를 자정(00:00:00)으로 정규화한 타임스탬프로 비교
+  // new Date()는 밀리초까지 포함하므로 그대로 쓰면 매 렌더마다 값이 달라져 무한루프 발생
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  const dateTs = normalized.getTime();
 
   useEffect(() => {
     setIsLoading(true);
