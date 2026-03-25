@@ -350,7 +350,7 @@ function App() {
               <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
                 <Text fw={600} size="sm" c="dimmed">오늘의 기록</Text>
               </div>
-              <Dashboard logs={logs} isLoading={isDashboardLoading} />
+              <Dashboard logs={logs} />
             </div>
 
             <div className="w-full md:w-[33%]">

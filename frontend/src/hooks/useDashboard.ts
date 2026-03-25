@@ -25,15 +25,21 @@ export function useDashboard(userId: string, date: Date = new Date()): UseDashbo
   useEffect(() => {
     setIsLoading(true);
     fetchLogsByDate(userId, new Date(dateTs))
-      .then(setLogs)
+      .then((newLogs) => {
+        // setLogs + setIsLoading 을 같은 콜백에서 호출해 React가 하나의 렌더로 배치 처리
+        // 분리하면 then → finally 순서로 마이크로태스크가 나뉘어
+        // logs=[], isLoading=true 상태가 한 프레임 렌더되며 스켈레톤 플래시 발생
+        setLogs(newLogs);
+        setIsLoading(false);
+      })
       .catch((e: Error) => {
+        setIsLoading(false);
         notifications.show({
           color:   'red',
           title:   '운동 기록 조회 실패',
           message: e.message,
         });
-      })
-      .finally(() => setIsLoading(false));
+      });
   }, [userId, dateTs, fetchTick]);
 
   function refetch() {

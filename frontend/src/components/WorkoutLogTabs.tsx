@@ -83,7 +83,7 @@ export function WorkoutLogTabs({ userId, logs, isLoading }: WorkoutLogTabsProps)
             <Text size="xs" c="dimmed">
               {today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
             </Text>
-            <Dashboard logs={logs} isLoading={isLoading} />
+            <Dashboard logs={logs} />
           </div>
         )}
 

@@ -1,10 +1,9 @@
-import { Card, Skeleton, Text } from '@mantine/core';
+import { Card, Text } from '@mantine/core';
 
 import type { DashboardLog } from '../types';
 
 type DashboardProps = {
-  logs:      DashboardLog[];
-  isLoading: boolean;
+  logs: DashboardLog[];
 };
 
 function parseUTC(iso: string): Date {
@@ -29,21 +28,11 @@ function formatDuration(startedAt: string, endedAt: string | null): string {
   return `${formatTime(startedAt)} ~ ${formatTime(endedAt)} (${diffMin}분)`;
 }
 
-export function Dashboard({ logs, isLoading }: DashboardProps) {
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-3">
-        {[1, 2].map((i) => (
-          <Skeleton key={i} height={120} radius="md" />
-        ))}
-      </div>
-    );
-  }
-
+export function Dashboard({ logs }: DashboardProps) {
   if (logs.length === 0) {
     return (
       <div className="flex items-center justify-center h-40">
-        <Text c="dimmed" size="sm">오늘 기록된 운동이 없습니다.</Text>
+        <Text c="dimmed" size="sm">기록된 운동이 없습니다.</Text>
       </div>
     );
   }
