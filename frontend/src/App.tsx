@@ -15,6 +15,7 @@ import {
 import { ERROR_MESSAGES } from './constants/errorMessages';
 import { Dashboard } from './components/Dashboard';
 import { DemoTimeline, buildDemoLogEntry } from './components/DemoTimeline';
+import { WorkoutHistoryCalendar } from './components/WorkoutHistoryCalendar';
 import type { DemoLogEntry } from './components/DemoTimeline';
 import { EquipmentRegisterModal } from './components/EquipmentRegisterModal';
 import { EquipmentStatus } from './components/EquipmentStatus';
@@ -40,10 +41,45 @@ const STATUS_BADGE: Record<string, { color: string; label: string }> = {
   disconnected: { color: 'gray', label: '연결 끊김' },
 };
 
+type LogTab = 'today' | 'history';
+
+const tabBase: React.CSSProperties = {
+  width:           '36px',
+  height:          '80px',
+  padding:         0,
+  border:          '1px solid #dee2e6',
+  borderRight:     'none',
+  borderRadius:    '6px 0 0 6px',
+  backgroundColor: '#f1f3f5',
+  display:         'flex',
+  alignItems:      'center',
+  justifyContent:  'center',
+  cursor:          'pointer',
+  marginBottom:    '4px',
+  marginRight:     '-1px',
+};
+
+const tabActive: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  boxShadow:       '-2px 0 4px rgba(0,0,0,0.06)',
+  zIndex:          10,
+};
+
+const tabLabel: React.CSSProperties = {
+  writingMode:     'vertical-rl',
+  textOrientation: 'mixed',
+  fontSize:        '11px',
+  fontWeight:      600,
+  letterSpacing:   '0.05em',
+  userSelect:      'none',
+  color:           '#495057',
+};
+
 function App() {
   const { lastEvent, status } = useWebSocketContext();
   const { smartDefault, isLoading, fetchForEquipment } = useWorkoutLog(USER_ID);
   const { logs, isLoading: isDashboardLoading, refetch } = useDashboard(USER_ID);
+  const [activeLogTab, setActiveLogTab] = useState<LogTab>('today');
 
   const [equipment, setEquipment] = useState<EquipmentDetectedPayload | null>(null);
   const [tumblerState, setTumblerState] = useState<TumblerStatePayload | null>(null);
@@ -243,71 +279,91 @@ function App() {
   const badge = STATUS_BADGE[status];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="flex items-center gap-3 mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Hands-Free Gym Tracker</h1>
-        <Badge color={badge.color} variant="light">{badge.label}</Badge>
-        <Button
-          size="xs"
-          className="w-30!"
-          variant="light"
-          color="violet"
-          disabled={isDemoRunning}
-          onClick={() => {
-            // 데모 시작 전 잔류 상태 초기화 (이전 demo inProgressLogId 등)
-            setInProgressLogId(null);
-            setInProgressSets([]);
-            setLogActionModal({ open: false, nextEquipment: null });
-            setDemoLogs([]);
-            demoStartedAt.current = Date.now();
-            setIsDemoRunning(true);
-            startDemoScenario(USER_ID).catch(() => {
-              setIsDemoRunning(false);
-              demoStartedAt.current = null;
-            });
-          }}
-        >
-          데모 시작
-        </Button>
+    <div className="min-h-screen bg-gray-50 flex">
+
+      {/* 수직 탭 — 화면 맨 왼쪽 고정 */}
+      <div style={{ display: 'flex', flexDirection: 'column', paddingTop: '4rem', paddingLeft: '4px' }}>
+        {(['today', 'history'] as LogTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveLogTab(tab)}
+            style={{ ...tabBase, ...(activeLogTab === tab ? tabActive : {}) }}
+          >
+            <span style={tabLabel}>{tab === 'today' ? '오늘' : '기록'}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row">
-        <div className="w-full md:w-[33%]">
-          <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-            <Text fw={600} size="sm" c="dimmed">기구 &amp; 운동</Text>
+      {/* 메인 컨텐츠 */}
+      <div className="flex-1 p-4" style={{ borderLeft: '1px solid #dee2e6' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <h1 className="text-2xl font-bold text-gray-800">Hands-Free Gym Tracker</h1>
+          <Badge color={badge.color} variant="light">{badge.label}</Badge>
+          <Button
+            size="xs"
+            className="w-30!"
+            variant="light"
+            color="violet"
+            disabled={isDemoRunning}
+            onClick={() => {
+              setInProgressLogId(null);
+              setInProgressSets([]);
+              setLogActionModal({ open: false, nextEquipment: null });
+              setDemoLogs([]);
+              demoStartedAt.current = Date.now();
+              setIsDemoRunning(true);
+              startDemoScenario(USER_ID).catch(() => {
+                setIsDemoRunning(false);
+                demoStartedAt.current = null;
+              });
+            }}
+          >
+            데모 시작
+          </Button>
+        </div>
+
+        {/* 탭1 — 오늘 운동 */}
+        {activeLogTab === 'today' && (
+          <div className="flex flex-col gap-4 md:flex-row">
+            <div className="w-full md:w-[33%]">
+              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+                <Text fw={600} size="sm" c="dimmed">기구 &amp; 운동</Text>
+              </div>
+              <EquipmentStatus equipment={equipment} tumblerState={tumblerState} inProgress={inProgressLogId !== null} />
+              {inProgressLogId && (
+                <WorkoutInProgress
+                  sets={inProgressSets}
+                  onComplete={handleComplete}
+                  onUpdateSets={handleUpdateSets}
+                />
+              )}
+              {!inProgressLogId && (
+                <SmartDefault
+                  data={smartDefault}
+                  isLoading={isLoading}
+                  onConfirm={handleSmartDefaultConfirm}
+                />
+              )}
+            </div>
+
+            <div className="w-full md:w-[33%]">
+              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+                <Text fw={600} size="sm" c="dimmed">오늘의 기록</Text>
+              </div>
+              <Dashboard logs={logs} isLoading={isDashboardLoading} />
+            </div>
+
+            <div className="w-full md:w-[33%]">
+              <div style={{ height: '48px' }} />
+              <DemoTimeline entries={demoLogs} />
+            </div>
           </div>
-          <EquipmentStatus equipment={equipment} tumblerState={tumblerState} inProgress={inProgressLogId !== null} />
+        )}
 
-          {/* Phase 3: 운동 진행 중 */}
-          {inProgressLogId && (
-            <WorkoutInProgress
-              sets={inProgressSets}
-              onComplete={handleComplete}
-              onUpdateSets={handleUpdateSets}
-            />
-          )}
-
-          {/* Phase 2: 목표 설정 (in_progress 없을 때만 표시) */}
-          {!inProgressLogId && (
-            <SmartDefault
-              data={smartDefault}
-              isLoading={isLoading}
-              onConfirm={handleSmartDefaultConfirm}
-            />
-          )}
-        </div>
-
-        <div className="w-full md:w-[33%]">
-          <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-            <Text fw={600} size="sm" c="dimmed">오늘의 기록</Text>
-          </div>
-          <Dashboard logs={logs} isLoading={isDashboardLoading} />
-        </div>
-
-        <div className="w-full md:w-[33%]">
-          <div style={{ height: '48px' }} />
-          <DemoTimeline entries={demoLogs} />
-        </div>
+        {/* 탭2 — 캘린더 기록 */}
+        {activeLogTab === 'history' && (
+          <WorkoutHistoryCalendar userId={USER_ID} />
+        )}
       </div>
 
       <Modal

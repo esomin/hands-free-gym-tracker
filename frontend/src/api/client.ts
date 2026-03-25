@@ -19,9 +19,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // ── 기구 API ──────────────────────────────────────────────────────────────────
 
 type RegisterEquipmentResponse = {
-  equipment_id:   string;
+  equipment_id: string;
   equipment_name: string;
-  confidence:     number;
+  confidence: number;
 };
 
 export async function registerEquipment(
@@ -34,10 +34,10 @@ export async function registerEquipment(
     body: JSON.stringify({ user_id: userId, equipment_name: equipmentName }),
   });
   return {
-    equipmentId:   data.equipment_id,
+    equipmentId: data.equipment_id,
     equipmentName: data.equipment_name,
-    confidence:    data.confidence,
-    detectedAt:    new Date().toISOString(),
+    confidence: data.confidence,
+    detectedAt: new Date().toISOString(),
   };
 }
 
@@ -53,8 +53,8 @@ export async function createWorkoutLog(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      user_id:        userId,
-      equipment_id:   equipmentId,
+      user_id: userId,
+      equipment_id: equipmentId,
       equipment_name: equipmentName,
       sets: sets.map((s, i) => ({ set_number: i + 1, weight: s.weight, reps: s.reps })),
     }),
@@ -82,19 +82,19 @@ export async function updateWorkoutLogSets(
 // ── 세션 API ──────────────────────────────────────────────────────────────────
 
 type SessionEquipment = {
-  equipment_id:   string;
+  equipment_id: string;
   equipment_name: string;
-  confidence:     number;
+  confidence: number;
 };
 
 type SessionInProgressLog = {
   log_id: string;
-  sets:   { set_number: number; weight: number; reps: number }[];
+  sets: { set_number: number; weight: number; reps: number }[];
 };
 
 export type SessionSnapshot = {
-  tumbler_state:   'moving' | 'settled';
-  equipment:       SessionEquipment | null;
+  tumbler_state: 'moving' | 'settled';
+  equipment: SessionEquipment | null;
   in_progress_log: SessionInProgressLog | null;
   is_demo_running: boolean;
 };
@@ -111,16 +111,16 @@ export async function deleteInProgressLog(userId: string): Promise<void> {
 
 type LogSetResponse = {
   set_number: number;
-  weight:     number;
-  reps:       number;
+  weight: number;
+  reps: number;
 };
 
 type WorkoutLogResponse = {
-  id:             string;
+  id: string;
   equipment_name: string;
-  sets:           LogSetResponse[];
-  started_at:     string;
-  ended_at:       string | null;
+  sets: LogSetResponse[];
+  started_at: string;
+  ended_at: string | null;
 };
 
 export async function fetchLogsByDate(userId: string, date: Date): Promise<DashboardLog[]> {
@@ -131,25 +131,50 @@ export async function fetchLogsByDate(userId: string, date: Date): Promise<Dashb
 
   const params = new URLSearchParams({
     user_id: userId,
-    start:   start.toISOString(),
-    end:     end.toISOString(),
+    start: start.toISOString(),
+    end: end.toISOString(),
   });
   const logs = await apiFetch<WorkoutLogResponse[]>(`/api/logs/?${params}`);
 
   // 로그 단위 유지, started_at 오름차순 정렬
   return logs
     .map((log) => ({
-      id:            log.id,
+      id: log.id,
       equipmentName: log.equipment_name,
-      sets:          log.sets.map((s) => ({
+      sets: log.sets.map((s) => ({
         setNumber: s.set_number,
-        weight:    s.weight,
-        reps:      s.reps,
+        weight: s.weight,
+        reps: s.reps,
       })),
       startedAt: log.started_at,
-      endedAt:   log.ended_at,
+      endedAt: log.ended_at,
     }))
     .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+}
+
+// 해당 월에 운동 기록이 있는 날짜를 "YYYY-MM-DD" 문자열 Set으로 반환
+export async function fetchWorkoutDatesInMonth(userId: string, month: Date): Promise<Set<string>> {
+  const start = new Date(month.getFullYear(), month.getMonth(), 1);
+  const end = new Date(month.getFullYear(), month.getMonth() + 1, 1);
+
+  const params = new URLSearchParams({
+    user_id: userId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+  const logs = await apiFetch<WorkoutLogResponse[]>(`/api/logs/?${params}`);
+
+  // started_at 에서 로컬 날짜(YYYY-MM-DD) 추출 후 중복 제거
+  const dates = new Set<string>();
+  for (const log of logs) {
+    const iso = log.started_at.endsWith('Z') || log.started_at.includes('+')
+      ? log.started_at
+      : log.started_at + 'Z';
+    const local = new Date(iso);
+    const key = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, '0')}-${String(local.getDate()).padStart(2, '0')}`;
+    dates.add(key);
+  }
+  return dates; // ex. Set { '2026-03-25', '2026-03-26' }
 }
 
 // ── 데모 API ──────────────────────────────────────────────────────────────────
@@ -161,9 +186,9 @@ export async function startDemoScenario(userId: string): Promise<void> {
 // ── 루틴 API ──────────────────────────────────────────────────────────────────
 
 type SmartDefaultResponse = {
-  equipment_id:          string;
+  equipment_id: string;
   suggested_sets_detail: { weight: number; reps: number }[];
-  based_on_date:         string | null;
+  based_on_date: string | null;
 };
 
 export async function fetchSmartDefault(
@@ -173,8 +198,8 @@ export async function fetchSmartDefault(
   const params = new URLSearchParams({ user_id: userId, equipment_id: equipmentId });
   const data = await apiFetch<SmartDefaultResponse>(`/api/routine/smart-default?${params}`);
   return {
-    equipmentId:         data.equipment_id,
+    equipmentId: data.equipment_id,
     suggestedSetsDetail: data.suggested_sets_detail,
-    basedOnDate:         data.based_on_date,
+    basedOnDate: data.based_on_date,
   };
 }
