@@ -44,35 +44,35 @@ const STATUS_BADGE: Record<string, { color: string; label: string }> = {
 type LogTab = 'today' | 'history';
 
 const tabBase: React.CSSProperties = {
-  width:           '36px',
-  height:          '80px',
-  padding:         0,
-  border:          '1px solid #dee2e6',
-  borderRight:     'none',
-  borderRadius:    '6px 0 0 6px',
+  width: '36px',
+  height: '80px',
+  padding: 0,
+  border: '1px solid #dee2e6',
+  borderRight: 'none',
+  borderRadius: '6px 0 0 6px',
   backgroundColor: '#f1f3f5',
-  display:         'flex',
-  alignItems:      'center',
-  justifyContent:  'center',
-  cursor:          'pointer',
-  marginBottom:    '4px',
-  marginRight:     '-1px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  marginBottom: '4px',
+  marginRight: '-1px',
 };
 
 const tabActive: React.CSSProperties = {
   backgroundColor: '#ffffff',
-  boxShadow:       '-2px 0 4px rgba(0,0,0,0.06)',
-  zIndex:          10,
+  boxShadow: '-2px 0 4px rgba(0,0,0,0.06)',
+  zIndex: 10,
 };
 
 const tabLabel: React.CSSProperties = {
-  writingMode:     'vertical-rl',
+  writingMode: 'vertical-rl',
   textOrientation: 'mixed',
-  fontSize:        '11px',
-  fontWeight:      600,
-  letterSpacing:   '0.05em',
-  userSelect:      'none',
-  color:           '#495057',
+  fontSize: '11px',
+  fontWeight: 600,
+  letterSpacing: '0.05em',
+  userSelect: 'none',
+  color: '#495057',
 };
 
 function App() {
@@ -289,7 +289,8 @@ function App() {
             onClick={() => setActiveLogTab(tab)}
             style={{ ...tabBase, ...(activeLogTab === tab ? tabActive : {}) }}
           >
-            <span style={tabLabel}>{tab === 'today' ? '오늘' : '기록'}</span>
+            {/* <span style={tabLabel}>{tab === 'today' ? '오늘 운동' : '기록'}</span> */}
+            <span style={tabLabel}>{tab === 'today' ? 'TODAY' : 'HISTORY'}</span>
           </button>
         ))}
       </div>
@@ -360,9 +361,11 @@ function App() {
           </div>
         )}
 
-        {/* 탭2 — 캘린더 기록 */}
+        {/* 탭2 — 캘린더 기록 (오늘의 기록 컬럼과 동일한 1/3 너비) */}
         {activeLogTab === 'history' && (
-          <WorkoutHistoryCalendar userId={USER_ID} />
+          <div className="w-full md:w-[33%]">
+            <WorkoutHistoryCalendar userId={USER_ID} />
+          </div>
         )}
       </div>
 

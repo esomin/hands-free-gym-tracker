@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { Calendar } from '@mantine/dates';
-import { Text } from '@mantine/core';
+import { Card, Divider, Text } from '@mantine/core';
 import dayjs from 'dayjs';
 
 import { fetchWorkoutDatesInMonth } from '../api/client';
@@ -38,46 +38,45 @@ export function WorkoutHistoryCalendar({ userId }: WorkoutHistoryCalendarProps) 
   }, [userId, currentMonth.getFullYear(), currentMonth.getMonth()]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <Calendar
-        size='xs'
-        // 표시 월
-        date={currentMonth}
-        onDateChange={(date) => setCurrentMonth(new Date(date))}
-        // 미래 날짜 비활성
-        maxDate={today}
-        // 오늘 날짜 강조
-        highlightToday
-        // 날짜 클릭 및 선택 하이라이트 — getDayProps로 직접 처리
-        // (Mantine 8 Calendar의 value/onChange는 날짜 선택이 아닌 월 이동용)
-        getDayProps={(date) => ({
-          selected: dayjs(date).isSame(selectedDate, 'day'),
-          onClick: () => setSelectedDate(new Date(date)),
-        })}
-        // 운동한 날 dot 표시
-        renderDay={(date) => {
-          const key = dayjs(date).format('YYYY-MM-DD');
-          const hasWorkout = workoutDates.has(key);
-          return (
-            <div className="relative flex items-center justify-center w-full h-full">
-              <span>{dayjs(date).date()}</span>
-              {hasWorkout && (
-                <span
-                  className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500"
-                />
-              )}
-            </div>
-          );
-        }}
-      />
+    <div className="flex flex-col gap-3">
 
-      {/* 선택된 날짜 표시 */}
-      <Text size="sm" fw={600} c="dimmed">
-        {dayjs(selectedDate).format('YYYY년 M월 D일')}
-      </Text>
+      {/* 캘린더 블록 */}
+      <Card shadow="sm" padding="sm" radius="md" withBorder>
+        <Calendar
+          size='lg'
+          className='flex justify-center'
+          date={currentMonth}
+          onDateChange={(date) => setCurrentMonth(new Date(date))}
+          maxDate={today}
+          highlightToday
+          getDayProps={(date) => ({
+            selected: dayjs(date).isSame(selectedDate, 'day'),
+            onClick: () => setSelectedDate(new Date(date)),
+          })}
+          renderDay={(date) => {
+            const key = dayjs(date).format('YYYY-MM-DD');
+            const hasWorkout = workoutDates.has(key);
+            return (
+              <div className="relative flex items-center justify-center w-full h-full">
+                <span>{dayjs(date).date()}</span>
+                {hasWorkout && (
+                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500" />
+                )}
+              </div>
+            );
+          }}
+        />
+      </Card>
 
-      {/* 선택된 날짜의 운동 로그 */}
-      <Dashboard logs={logs} isLoading={isLoading} />
+      {/* 선택된 날짜 + 로그 블록 */}
+      <Card shadow="sm" padding="sm" radius="md" withBorder>
+        <Text size="sm" fw={600} mb="xs">
+          {dayjs(selectedDate).format('YYYY년 M월 D일')}
+        </Text>
+        <Divider mb="sm" />
+        <Dashboard logs={logs} isLoading={isLoading} />
+      </Card>
+
     </div>
   );
 }
