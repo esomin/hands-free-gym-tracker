@@ -282,7 +282,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 flex">
 
       {/* 수직 탭 — 화면 맨 왼쪽 고정 */}
-      <div style={{ display: 'flex', flexDirection: 'column', paddingTop: '4rem', paddingLeft: '4px' }}>
+      <div className="flex flex-col pt-16 pl-1 bg-indigo-950">
         {(['today', 'history'] as LogTab[]).map((tab) => (
           <button
             key={tab}

@@ -7,18 +7,20 @@
 * **대상(Target)** 기록의 번거로움보다 운동의 몰입을 우선시하며, 체계적인 데이터 관리를 원하는 웨이트 트레이너 및 애호가
 * **핵심 가치(Benefit)** 스마트폰 조작 0회, 운동 흐름 끊김 없는 **'완전 자율형'** 운동 기록 경험 제공
 * **제품 성격** 데이터 파이프라인 중심의 지능형 웹 에이전트 (Web-based Data Agent)
-* **핵심 기능(Feature)** 
-    - **텀블러 거치 기반 지자기 지문(Magnetic Fingerprinting) 인식**: 헬스장 기구별 고유한 금속 밀도와 배치에 따른 미세 자기장 왜곡을 인식하여, 텀블러를 내려놓는 순간 현재 위치한 기구를 오차 범위 50cm 이내로 식별.
-    - **IMU 기반 2단계 텀블러 상태 감지**: 가속도·자이로 센서로 '이동 중(텀블러 이동 감지) / 거치됨(기구 점유)'의 2단계 상태를 구분. 텀블러 거치 후 사용자가 운동 중이든 휴식 중이든 센서 출력은 동일(~1.0g, 자이로≈0)하므로, 정확하게 구분 가능한 이 2단계 설계로 파이프라인을 구성.
-    - **WebSocket 기반 초저지연 실시간 로깅**: 센서에서 발생하는 스트림 데이터를 WebSocket으로 처리하여 사용자가 텀블러를 놓음과 동시에 웹 UI가 즉각 반응하는 '노-터치' 인터페이스 구현.
-    - **예측 기반 스마트 디폴트(Smart Default)**: 사용자의 과거 루틴과 현재 위치를 결합하여 "오늘의 레그 프레스 목표: 120kg, 12회"를 선제적으로 세팅.
 
 ## Technical Implementation
 
 * **실시간 양방향 데이터 싱크**: 텀블러(시뮬레이터)에서 발생하는 미세한 물리적 변화를 초저지연 WebSocket으로 수신하고, 분석 결과를 사용자 화면에 즉각 반영하는 전이중(Full-duplex) 통신 구조 설계.
-* **지능형 센서 데이터 정제 엔진**: `NumPy`와 `Pandas`  를 활용하여 유입된 센서 노이즈를 필터링하고, 지자기 패턴 매칭 알고리즘을 통해 90% 이상의 정확도로 기구 위치를 식별하는 FastAPI 기반 코어 로직 구축.
+* **지능형 센서 데이터 정제 엔진**: `NumPy`와 `Pandas`를 활용하여 유입된 센서 노이즈를 필터링하고, 지자기 패턴 매칭 알고리즘을 통해 90% 이상의 정확도로 기구 위치를 식별하는 FastAPI 기반 코어 로직 구축.
 * **스키마리스(Schema-less) 운동 로그 모델링**: 기구마다 상이한 데이터 구조와 사용자별 가변적 루틴을 수용하기 위해 `MongoDB`를 채택, 유연한 데이터 확장성과 빠른 쓰기 성능 확보.
 * **In-Memory 상태 관리 시스템**: 서버 내부의 효율적인 자료구조(`Deque`, `LRU Cache`)를 활용하여 외부 인프라 의존성을 줄이면서도 단일 노드 내에서 고속으로 사용자 상태를 추적하는 최적화 수행.
+
+## Key Features
+
+* **텀블러 거치 기반 지자기 지문(Magnetic Fingerprinting) 인식**: 헬스장 기구별 고유한 금속 밀도와 배치에 따른 미세 자기장 왜곡을 인식하여, 텀블러를 내려놓는 순간 현재 위치한 기구를 오차 범위 50cm 이내로 식별.
+* **IMU 기반 2단계 텀블러 상태 감지**: 가속도·자이로 센서로 '이동 중(텀블러 이동 감지) / 거치됨(기구 점유)'의 2단계 상태를 구분. 텀블러 거치 후 사용자가 운동 중이든 휴식 중이든 센서 출력은 동일(~1.0g, 자이로≈0)하므로, 정확하게 구분 가능한 이 2단계 설계로 파이프라인을 구성.
+* **WebSocket 기반 초저지연 실시간 로깅**: 센서에서 발생하는 스트림 데이터를 WebSocket으로 처리하여 사용자가 텀블러를 놓음과 동시에 웹 UI가 즉각 반응하는 '노-터치' 인터페이스 구현.
+* **예측 기반 스마트 디폴트(Smart Default)**: 사용자의 과거 루틴과 현재 위치를 결합하여 "오늘의 레그 프레스 목표: 120kg, 12회"를 선제적으로 세팅.
 
 ## Tech Stack
 
@@ -34,7 +36,6 @@
 ## Architecture
 
 ![Architecture](./architecture.png)
-
 
 ### 시스템 구성도
 
@@ -97,9 +98,7 @@ graph TB
 
 ---
 
-## App Details
-
-### 폴더 구조
+## Project Structure
 
 ```
 handsfree-gym-tracker/
@@ -143,3 +142,51 @@ handsfree-gym-tracker/
 │   └── ws_emitter.py                      # 생성된 센서 데이터를 WebSocket으로 백엔드에 전송
 ```
 
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Docker & Docker Compose**
+- **Python** v3.10 이상
+- **Node.js** v18 이상
+
+### Installation & Run
+
+```bash
+# 1. 저장소 클론
+git clone <repository-url>
+cd handsfree-gym-tracker
+
+# 2. 전체 서비스 통합 실행 (MongoDB, Backend, Simulator, Frontend 동시 구동)
+./dev.sh
+```
+
+#### 개별 서비스 실행 (Manual Run)
+
+```bash
+# 1. MongoDB 실행
+docker compose up -d
+
+# 2. 백엔드 서버 실행 (FastAPI)
+cd backend && source venv/bin/activate
+uvicorn main:app --reload --port 8000
+
+# 3. 센서 시뮬레이터 실행 (Streamlit)
+cd simulator && source venv/bin/activate
+streamlit run streamlit_app.py --server.port 8501
+
+# 4. 프론트엔드 앱 실행 (React/Vite)
+cd frontend && npm run dev
+```
+
+### 서비스 접속 포트
+
+| 서비스 | URL | 비고 |
+| :--- | :--- | :--- |
+| **Frontend** | [http://localhost:5173](http://localhost:5173) | React 반응형 웹앱 |
+| **Backend API** | [http://localhost:8000](http://localhost:8000) | FastAPI 백엔드 서버 |
+| **API Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger API 문서 |
+| **Simulator** | [http://localhost:8501](http://localhost:8501) | Streamlit 센서 시뮬레이터 |
+| **MongoDB** | `localhost:27017` | Docker 컨테이너 |
