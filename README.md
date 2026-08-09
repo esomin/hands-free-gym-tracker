@@ -1,192 +1,209 @@
-#  Hands-Free Gym Tracker
+# Hands-Free Med-Tracker (자율형 복약 및 순응도 관리 시스템)
 
-> **실시간 데이터 스트림 정제 기술 기반의 비접촉 운동 로깅 솔루션**
-
-## Overview
-
-* **대상(Target)** 기록의 번거로움보다 운동의 몰입을 우선시하며, 체계적인 데이터 관리를 원하는 웨이트 트레이너 및 애호가
-* **핵심 가치(Benefit)** 스마트폰 조작 0회, 운동 흐름 끊김 없는 **'완전 자율형'** 운동 기록 경험 제공
-* **제품 성격** 데이터 파이프라인 중심의 지능형 웹 에이전트 (Web-based Data Agent)
-
-## Technical Implementation
-
-* **실시간 양방향 데이터 싱크**: 텀블러(시뮬레이터)에서 발생하는 미세한 물리적 변화를 초저지연 WebSocket으로 수신하고, 분석 결과를 사용자 화면에 즉각 반영하는 전이중(Full-duplex) 통신 구조 설계.
-* **지능형 센서 데이터 정제 엔진**: `NumPy`와 `Pandas`를 활용하여 유입된 센서 노이즈를 필터링하고, 지자기 패턴 매칭 알고리즘을 통해 90% 이상의 정확도로 기구 위치를 식별하는 FastAPI 기반 코어 로직 구축.
-* **스키마리스(Schema-less) 운동 로그 모델링**: 기구마다 상이한 데이터 구조와 사용자별 가변적 루틴을 수용하기 위해 `MongoDB`를 채택, 유연한 데이터 확장성과 빠른 쓰기 성능 확보.
-* **In-Memory 상태 관리 시스템**: 서버 내부의 효율적인 자료구조(`Deque`, `LRU Cache`)를 활용하여 외부 인프라 의존성을 줄이면서도 단일 노드 내에서 고속으로 사용자 상태를 추적하는 최적화 수행.
-
-## Key Features
-
-* **텀블러 거치 기반 지자기 지문(Magnetic Fingerprinting) 인식**: 헬스장 기구별 고유한 금속 밀도와 배치에 따른 미세 자기장 왜곡을 인식하여, 텀블러를 내려놓는 순간 현재 위치한 기구를 오차 범위 50cm 이내로 식별.
-* **IMU 기반 2단계 텀블러 상태 감지**: 가속도·자이로 센서로 '이동 중(텀블러 이동 감지) / 거치됨(기구 점유)'의 2단계 상태를 구분. 텀블러 거치 후 사용자가 운동 중이든 휴식 중이든 센서 출력은 동일(~1.0g, 자이로≈0)하므로, 정확하게 구분 가능한 이 2단계 설계로 파이프라인을 구성.
-* **WebSocket 기반 초저지연 실시간 로깅**: 센서에서 발생하는 스트림 데이터를 WebSocket으로 처리하여 사용자가 텀블러를 놓음과 동시에 웹 UI가 즉각 반응하는 '노-터치' 인터페이스 구현.
-* **예측 기반 스마트 디폴트(Smart Default)**: 사용자의 과거 루틴과 현재 위치를 결합하여 "오늘의 레그 프레스 목표: 120kg, 12회"를 선제적으로 세팅.
-
-## Tech Stack
-
-* **Frontend**: React, Mantine + Tailwind CSS (반응형 웹앱 — 모바일·데스크톱 동시 지원)
-* **Backend**: FastAPI (Python)
-* **Real-time**: WebSockets
-* **Database**: MongoDB
-* **Data Analysis**: NumPy, Pandas, Scikit-learn
-* **Simulator**: Python Streamlit / Mocking Script
+> **노-터치 IMU 센서 기반 자율형 복약 추적 및 순응도 관리 솔루션**
 
 ---
 
-## Architecture
+## 1. Overview (개요)
 
-![Architecture](./architecture.png)
+Hands-Free Med-Tracker는 매일 정기적으로 약(처방약, 만성질환 약 등)을 복용하는 현대인과 복약 습관을 관리하고자 하는 사용자를 위한 **자율형 복약 관리 시스템**입니다. **GY-BMI160 6축 관성 센서(IMU)만을 활용**하여 사용자 개입을 최소화한 "버튼 0회" UX를 제공합니다.
 
-### 시스템 구성도
-
-```mermaid
-graph TB
-    subgraph Simulator["시뮬레이터 (Python Streamlit)"]
-        SIM_MAG[지자기 센서 시뮬레이터]
-        SIM_IMU[IMU 센서 시뮬레이터<br/>가속도 · 자이로]
-    end
-
-    subgraph Backend["백엔드 (FastAPI)"]
-        WS[WebSocket Handler]
-        PIPE[데이터 파이프라인<br/>NumPy · Pandas]
-        MAG_ENGINE[지자기 패턴 매칭 엔진<br/>Scikit-learn]
-        STATE[In-Memory 상태 관리<br/>Deque · LRU Cache<br/>이동 중 / 거치됨 2단계]
-        REST[REST API]
-        DB_CLIENT[MongoDB Client]
-    end
-
-    subgraph Database["데이터베이스 (MongoDB)"]
-        COL_LOG[(운동 로그)]
-        COL_ROUTINE[(루틴 · 목표)]
-        COL_GYM[(기구 지자기 지문)]
-    end
-
-    subgraph Frontend["프론트엔드 (React · Mantine · Tailwind CSS)"]
-        UI_DASH[대시보드 / 실시간 로그]
-        UI_SMART[스마트 디폴트 표시]
-        WS_CLIENT[WebSocket Client]
-    end
-
-    SIM_MAG -->|raw sensor stream| WS
-    SIM_IMU -->|raw sensor stream| WS
-
-    WS --> PIPE
-    PIPE --> MAG_ENGINE
-    MAG_ENGINE -->|기구 식별 결과| STATE
-    STATE -->|상태 업데이트| WS
-    STATE --> DB_CLIENT
-
-    DB_CLIENT --> COL_LOG
-    DB_CLIENT --> COL_ROUTINE
-    DB_CLIENT --> COL_GYM
-
-    REST -->|루틴 · 이력 조회| DB_CLIENT
-    MAG_ENGINE -->|지문 DB 조회| COL_GYM
-
-    WS -->|실시간 이벤트| WS_CLIENT
-    WS_CLIENT --> UI_DASH
-    REST -->|스마트 디폴트 데이터| UI_SMART
-```
-
-### 데이터 흐름 요약
-
-1. **센서 수집**: 시뮬레이터가 지자기·IMU 센서 데이터를 WebSocket으로 전송
-2. **정제 & 식별**: 파이프라인이 노이즈를 필터링하고 지자기 지문으로 기구 위치를 식별
-3. **상태 갱신**: In-Memory 캐시로 텀블러의 현재 상태(이동 중 / 거치됨·기구 점유)를 실시간 추적 (운동 중/휴식 구분은 센서 범위 외)
-4. **영속화**: 운동 로그와 루틴 데이터를 MongoDB에 저장
-5. **UI 반영**: WebSocket 이벤트로 프론트엔드가 즉각 반응하여 노-터치 인터페이스 구현
+약통을 들었다 내려놓는 자연스러운 일상 동작만으로 센서가 움직임(`moving`)과 거치 완료(`settled`) 상태를 초저지연으로 감지하여 복용 데이터를 자동 생성합니다. 단계별 개발 전략(Phase 1, Phase 2)을 통해 핵심 복약 로깅부터 보호자/보호 네트워크 비상 관제까지 확장 가능한 구조를 제시합니다.
 
 ---
 
-## Project Structure
+## 2. Key Features (핵심 기능)
+
+* **GY-BMI160 단일 센서 기반 움직임 감지**:
+* GY-BMI160 6축(가속도+자이로) 센서로 약통의 들림과 내려놓음(`moving` $\rightarrow$ `settled`) 패턴을 정밀 추적.
+
+
+* **버튼 Zero-Touch 복약 로깅 (Phase 1)**:
+* 별도의 버튼 조작이나 스마트폰 태깅 없이 약을 꺼내 먹고 내려놓는 즉시 데이터베이스에 복용 시각 자동 기록.
+
+
+* **복약 순응도(Adherence) 대시보드 (Phase 1)**:
+* 주간/월간 복약 달성률 통계, 연속 복용 일수(Streak), 시간대별 복용 패턴 분석 제공.
+
+
+* **지연 복용 알림 & 비상 Push 관제 (Phase 2)**:
+* 복용 예정 시간 미준수 시 1차 디바이스 부저/LED 알림 제공.
+* 일정 시간 이상 미복용 지속 시 가족/지인에게 비상 Push 알림 전송 기능 확장.
+
+
+
+---
+
+## 3. Architecture (아키텍처)
+
+### 3.1. System Overview (ASCII Box Diagram)
 
 ```
-handsfree-gym-tracker/
-├── frontend/                              # React 반응형 웹앱
-│   ├── public/
-│   └── src/
-│       ├── components/
-│       │   ├── Dashboard.tsx              # 실시간 운동 로그 대시보드 (모바일·데스크톱 레이아웃)
-│       │   ├── EquipmentStatus.tsx        # 현재 식별된 기구명 및 운동 상태 표시
-│       │   ├── SmartDefault.tsx           # 스마트 디폴트 목표값 표시 및 수정
-│       │   └── EquipmentRegisterModal.tsx # 신규 기구 지문 등록 모달
-│       ├── hooks/
-│       │   ├── useWebSocket.ts            # WebSocket 연결·재연결·이벤트 수신 관리
-│       │   └── useWorkoutLog.ts           # 운동 로그 상태 및 REST 조회 관리
-│       ├── api/
-│       │   └── client.ts                  # REST API 클라이언트 (루틴·로그 조회)
-│       ├── types/
-│       │   └── index.ts                   # 공통 TypeScript 타입 정의
-│       └── App.tsx                        # 라우팅 및 전역 WebSocket 컨텍스트 제공
-│
-├── backend/                               # FastAPI 서버
-│   ├── main.py                            # 앱 진입점, CORS·라우터 등록
-│   ├── websocket/
-│   │   └── handler.py                     # WebSocket 연결 수락·브로드캐스트·재연결 처리
-│   ├── pipeline/
-│   │   ├── noise_filter.py                # NumPy 기반 지자기·IMU 노이즈 필터링
-│   │   ├── mag_fingerprint.py             # Scikit-learn 기반 지자기 패턴 매칭 및 기구 식별
-│   │   └── imu_state.py                   # 가속도·자이로 기반 사용자 상태 전이 감지
-│   ├── state/
-│   │   └── session_cache.py               # LRU Cache + Deque 기반 세션 상태 관리
-│   ├── routers/
-│   │   ├── log.py                         # 운동 로그 CRUD REST API
-│   │   └── routine.py                     # 루틴 조회 및 스마트 디폴트 계산 API
-│   └── db/
-│       └── mongo_client.py                # MongoDB 연결 및 컬렉션 접근
-│
-├── simulator/                             # 센서 시뮬레이터
-│   ├── streamlit_app.py                   # Streamlit UI (기구 선택, 노이즈 레벨, 상태 전이 제어)
-│   ├── mag_simulator.py                   # 기구별 지자기 지문 패턴 데이터 생성
-│   ├── imu_simulator.py                   # 상태별 IMU 데이터 생성 (이동·운동·휴식)
-│   └── ws_emitter.py                      # 생성된 센서 데이터를 WebSocket으로 백엔드에 전송
++-----------------------------------------------------------------------+
+|                            Smart Dock Device                          |
+|  +---------------------+         +---------------------------------+  |
+|  | GY-BMI160 (6-Axis)  | ------> | ESP32-C3 Microcontroller        |  |
+|  | Accel + Gyro Sensor | Sensor  | (WebSocket Client / Wi-Fi)      |  |
+|  +---------------------+ Stream  +---------------------------------+  |
++-----------------------------------------------------------------------+
+                                   |
+                                   | WebSocket (Real-time Stream)
+                                   v
++-----------------------------------------------------------------------+
+|                            Backend Server                             |
+|  +-----------------------------------------------------------------+  |
+|  | FastAPI Application                                             |  |
+|  |   - WebSocket Handler                                           |  |
+|  |   - IMU State Engine (moving -> settled Detection)              |  |
+|  |   - Adherence Calculation Engine                                |  |
+|  |   - Emergency Push Service (Phase 2)                            |  |
+|  +-----------------------------------------------------------------+  |
+|                                  |                                    |
+|                                  v                                    |
+|                       +--------------------+                          |
+|                       |  MongoDB Database  |                          |
+|                       +--------------------+                          |
++-----------------------------------------------------------------------+
+                                   |
+                                   | REST API / WebSockets
+                                   v
++-----------------------------------------------------------------------+
+|                        Frontend App (React)                           |
+|  +----------------------------------+  +---------------------------+  |
+|  | Real-time Adherence Dashboard    |  | Phase 2 Alert Manager     |  |
+|  | (Daily/Weekly Stats & Streak)    |  | (Push Warning & Notif)    |  |
+|  +----------------------------------+  +---------------------------+  |
++-----------------------------------------------------------------------+
+
 ```
 
 ---
 
-## Getting Started
+## 4. Tech Stack (기술 스택)
 
-### Prerequisites
+| 영역 | 기술 스택 | 비고 / 역할 |
+| --- | --- | --- |
+| **Hardware** | ESP32-C3-SuperMini, GY-BMI160 | 6축 관성 센서 데이터 수집 및 Wi-Fi 전송 |
+| **Backend** | Python 3.11+, FastAPI, WebSockets | 실시간 센서 스트림 처리, 상태 엔진, REST API |
+| **Database** | MongoDB | 센서 로그, 복용 이력, 사용자 프로필 저장 |
+| **Frontend** | React 18, TypeScript, Tailwind CSS | 복약 순응도 대시보드 및 관제 UI |
+| **DevSecOps** | Docker, Docker Compose, GitHub Actions | 컨테이너화 및 CI/CD 파이프라인 |
 
-- **Docker & Docker Compose**
-- **Python** v3.10 이상
-- **Node.js** v18 이상
+---
 
-### Installation & Run
+## 5. Project Structure (프로젝트 구조)
+
+### 5.1. Directory Tree
+
+```
+hands-free-med-tracker/
+├── firmware/                       # ESP32-C3 마이크로컨트롤러 임베디드 C++ 코드
+│   ├── include/                    # 헤더 파일 모음
+│   ├── src/                        # GY-BMI160 센서 드라이버 및 WebSocket 클라이언트
+│   └── platformio.ini              # PlatformIO 빌드 및 의존성 설정
+├── backend/                        # FastAPI 백엔드 애플리케이션
+│   ├── app/
+│   │   ├── api/                    # REST API 라우터 및 WebSocket 엔드포인트
+│   │   ├── core/                   # 환경변수 및 보안 설정
+│   │   ├── db/                     # MongoDB 연결 및 데이터 모델
+│   │   ├── services/               # IMU 상태 엔진 (`moving` -> `settled`) 및 로직
+│   │   └── main.py                 # FastAPI 진입점
+│   ├── tests/                      # 백엔드 유닛 및 통합 테스트
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/                       # React 웹 대시보드
+│   ├── src/
+│   │   ├── components/             # UI 컴포넌트 (차트, 대시보드 카운터)
+│   │   ├── pages/                  # 메인 대시보드 및 설정 페이지
+│   │   ├── services/               # API 및 WebSocket 통신 클라이언트
+│   │   └── App.tsx
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml              # 전체 시스템 멀티 컨테이너 실행 환경
+└── README.md
+
+```
+
+### 5.2. Dependency Flow (패키지 간 의존성 방향)
+
+```
+[firmware]  ---> (WebSocket Stream) --->  [backend]
+                                              ^
+[frontend]  ---> (REST API / WS)  -----------|
+
+```
+
+---
+
+## 6. Getting Started (실행 방법)
+
+### 6.1. Prerequisites (사전 요구사항)
+
+* **Hardware**: ESP32-C3-SuperMini 개발 보드, GY-BMI160 IMU 센서 모듈
+* **Software Tools**:
+* Node.js v18+ 및 npm / yarn
+* Python 3.11+
+* Docker 및 Docker Compose
+* VS Code PlatformIO IDE Extension (펌웨어 빌드용)
+
+
+
+---
+
+### 6.2. Installation & Run (설치 및 실행)
+
+#### Step 1: Repository Clone
 
 ```bash
-# 1. 저장소 클론
-git clone <repository-url>
-cd handsfree-gym-tracker
+git clone https://github.com/your-org/hands-free-med-tracker.git
+cd hands-free-med-tracker
 
-# 2. 전체 서비스 통합 실행 (MongoDB, Backend, Simulator, Frontend 동시 구동)
-./dev.sh
 ```
 
-#### 개별 서비스 실행 (Manual Run)
+#### Step 2: Run Backend & Database (Docker)
 
 ```bash
-# 1. MongoDB 실행
-docker compose up -d
+# Docker Compose를 이용한 백엔드 및 MongoDB 실행
+docker-compose up --build -d
 
-# 2. 백엔드 서버 실행 (FastAPI)
-cd backend && source venv/bin/activate
-uvicorn main:app --reload --port 8000
-
-# 3. 센서 시뮬레이터 실행 (Streamlit)
-cd simulator && source venv/bin/activate
-streamlit run streamlit_app.py --server.port 8501
-
-# 4. 프론트엔드 앱 실행 (React/Vite)
-cd frontend && npm run dev
 ```
 
-### 서비스 접속 포트
+#### Step 3: Backend Local Manual Setup (Alternative)
 
-| 서비스 | URL | 비고 |
-| :--- | :--- | :--- |
-| **Frontend** | [http://localhost:5173](http://localhost:5173) | React 반응형 웹앱 |
-| **Backend API** | [http://localhost:8000](http://localhost:8000) | FastAPI 백엔드 서버 |
-| **API Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger API 문서 |
-| **Simulator** | [http://localhost:8501](http://localhost:8501) | Streamlit 센서 시뮬레이터 |
-| **MongoDB** | `localhost:27017` | Docker 컨테이너 |
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+```
+
+#### Step 4: Frontend Setup & Run
+
+```bash
+cd ../frontend
+npm install
+npm run start
+
+```
+
+#### Step 5: Firmware Build & Flash (ESP32-C3)
+
+```bash
+cd ../firmware
+# PlatformIO CLI 사용 시
+pio run --target upload
+
+```
+
+#### Step 6: Test Execution
+
+```bash
+# 백엔드 테스트 수행
+cd ../backend
+pytest
+
+```
+
+---
