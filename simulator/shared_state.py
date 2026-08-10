@@ -4,7 +4,9 @@
 # Streamlit rerun이 반복되어도 항상 동일한 객체를 가리킨다.
 # → 메인 스레드에서 params를 in-place 업데이트하면 백그라운드 스레드에 즉시 반영됨.
 params: dict = {
-    "bottle_state":     "이동/복용 중",
+    "bottle_state":     "보관 중 (0도)",
     "selected_bottle":  "BOTTLE_01",
+    "tilt_angle":       0,
     "noise_level":      0.1,
+    "trigger_impulse":  False,
 }

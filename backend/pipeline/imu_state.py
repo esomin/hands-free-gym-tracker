@@ -1,87 +1,127 @@
 from __future__ import annotations
 
+import math
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
 
-# ── 상수 (notebooks/imu_state_dev.ipynb 그리드 탐색으로 확정) ───────────────
+# ── 상수 ──────────────────────────────────────────────────────────────────────
 # 슬라이딩 윈도우 크기 (샘플 수, 50 Hz 기준 0.4 s)
 WINDOW_SIZE = 20
+
+# 복용 판별 임계값 (조사 자료 기반)
+# AccZ < 0.0 m/s^2 이면서 sqrt(AccX^2 + AccY^2) > 7.0 m/s^2 지속 조건
+POURING_ACC_Z_MAX = 0.0
+POURING_ACC_XY_MIN = 7.0
+# 최소 1초 (50Hz 기준 50 샘플) 지속 시 복용 감지
+INTAKE_SUSTAINED_SAMPLES = 50
+
 # |accel − 1.0 g| 이동 평균 임계값 (g)
 MOVE_ACCEL_THRESHOLD = 0.04
-# gyro 분산 임계값 ((rad/s)²) — 상세 근거: docs/imu_thresholds.md
 MOVE_GYRO_VAR = 0.40
 
-# ── 타입 정의 ─────────────────────────────────────────────────────────────────
-# 텀블러 2단계 상태
-# moving : 텀블러가 이동 중 (가속도 편차 또는 자이로 활성)
-# settled: 텀블러가 거치됨 (중력만 측정, 자이로 ≈ 0) → 기구 식별 트리거
-TumblerState = Literal['moving', 'settled']
+# 약통 4단계 상태 정의
+# idle: 보관 중 (0도)
+# moving: 집어 들거나 이동 중 (45도 등)
+# pouring: 손바닥에 알약 털어넣기 중 (110도대 기울임)
+# settled: 다시 제자리에 세워 거치 완료 (0도)
+BottleState = Literal['idle', 'moving', 'pouring', 'settled']
 
 
 @dataclass
 class SensorReading:
-    # 가속도 크기 (g 단위, 정지 시 ≈ 1.0 g)
     accel_magnitude: float
-    # 자이로 크기 (rad/s, 정지 시 ≈ 0)
     gyro_magnitude: float
-    # 측정 시각 (UTC)
+    acc_x: float = 0.0
+    acc_y: float = 0.0
+    acc_z: float = 9.81
+    state_deg: int = 0
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-# ── 핵심 함수 ─────────────────────────────────────────────────────────────────
-
-def detect_tumbler_state(sensor_window: deque[SensorReading]) -> TumblerState:
+def detect_medication_intake(window: deque[SensorReading]) -> bool:
     """
-    슬라이딩 윈도우 내 센서 값으로 텀블러 상태를 판별한다.
+    윈도우 내 샘플들이 영양제 복용 모션(110도 알약 털어넣기) 조건에 부합하는지 판별한다.
 
-    판별 규칙 (OR 조건 — 하나라도 초과 시 이동 중):
-        |accel − 1.0 g| 이동 평균 > MOVE_ACCEL_THRESHOLD
-        gyro 분산              > MOVE_GYRO_VAR
+    조건:
+    1. AccZ < 0.0 m/s^2 (대각선 ~ 110도 기울임)
+    2. sqrt(AccX^2 + AccY^2) > 7.0 m/s^2
+    3. 최근 INTAKE_SUSTAINED_SAMPLES (50샘플, 약 1초) 이상 유지
+    """
+    if len(window) < INTAKE_SUSTAINED_SAMPLES:
+        return False
 
-    윈도우가 가득 차지 않았으면 보수적으로 'moving' 반환.
-    (초기 샘플 수가 적을 때 임계값 주변 노이즈로 인한 spurious 전이 방지)
+    recent_samples = list(window)[-INTAKE_SUSTAINED_SAMPLES:]
+
+    for r in recent_samples:
+        xy_mag = math.sqrt(r.acc_x**2 + r.acc_y**2)
+        if not (r.acc_z < POURING_ACC_Z_MAX and xy_mag > POURING_ACC_XY_MIN):
+            return False
+
+    return True
+
+
+def detect_bottle_state(sensor_window: deque[SensorReading]) -> BottleState:
+    """
+    슬라이딩 윈도우 내 센서 값으로 약통의 움직임/거치 상태를 판별한다.
     """
     if len(sensor_window) < WINDOW_SIZE:
         return 'moving'
 
     readings = list(sensor_window)
 
-    # 중력(1.0 g) 기준 편차의 이동 평균
-    accel_dev_mean = sum(abs(r.accel_magnitude - 1.0) for r in readings) / len(readings)
+    # 최근 센서독출 중 110도 털어넣는 중인지 검사
+    latest = readings[-1]
+    if latest.acc_z < POURING_ACC_Z_MAX and math.sqrt(latest.acc_x**2 + latest.acc_y**2) > POURING_ACC_XY_MIN:
+        return 'pouring'
 
-    # gyro 크기의 분산
+    accel_dev_mean = sum(abs(r.accel_magnitude - 1.0) for r in readings) / len(readings)
     gyro_values = [r.gyro_magnitude for r in readings]
-    gyro_mean   = sum(gyro_values) / len(gyro_values)
-    gyro_var    = sum((v - gyro_mean) ** 2 for v in gyro_values) / len(gyro_values)
+    gyro_mean = sum(gyro_values) / len(gyro_values)
+    gyro_var = sum((v - gyro_mean) ** 2 for v in gyro_values) / len(gyro_values)
 
     if accel_dev_mean > MOVE_ACCEL_THRESHOLD or gyro_var > MOVE_GYRO_VAR:
         return 'moving'
     return 'settled'
 
 
+# 기존 호환성용 하위 별칭
+detect_tumbler_state = detect_bottle_state
+
+
+def make_medication_taken_event(
+    bottle_id: str,
+    timestamp: datetime | None = None,
+) -> dict:
+    """복용 완료 이벤트 딕셔너리 생성"""
+    ts = timestamp or datetime.now(timezone.utc)
+    return {
+        'type': 'medication_taken',
+        'payload': {
+            'bottle_id': bottle_id,
+            'taken_at': ts.isoformat(),
+            'status': 'SUCCESS',
+            'state_deg': 110,
+        },
+        'timestamp': ts.isoformat(),
+    }
+
+
 def make_state_event(
-    new_state: TumblerState,
-    prev_state: TumblerState,
+    new_state: BottleState,
+    prev_state: BottleState,
     timestamp: datetime | None = None,
 ) -> dict | None:
-    """
-    상태가 전이된 경우 WebSocket 브로드캐스트용 이벤트 딕셔너리를 반환한다.
-    전이가 없으면 None 반환.
-    """
     if new_state == prev_state:
         return None
 
     ts = timestamp or datetime.now(timezone.utc)
 
     return {
-        # 이벤트 타입: 프론트엔드 WebSocketEvent 타입과 일치
-        'type': 'tumbler_state_changed',
+        'type': 'bottle_state_changed',
         'payload': {
-            # 새 상태
             'state': new_state,
-            # 전이 시각 (ISO 8601)
             'transitioned_at': ts.isoformat(),
         },
         'timestamp': ts.isoformat(),

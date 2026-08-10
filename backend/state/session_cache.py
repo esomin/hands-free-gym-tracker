@@ -4,7 +4,7 @@ from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from pipeline.imu_state import WINDOW_SIZE, SensorReading, TumblerState
+from pipeline.imu_state import WINDOW_SIZE, BottleState, SensorReading
 from pipeline.mag_fingerprint import MagVector
 
 MAX_SESSIONS = 500
@@ -20,12 +20,11 @@ class SessionState:
     # 사용자 식별자 (WebSocket 연결 단위로 발급)
     user_id: str
 
-    # 현재 식별된 기구 ID (거치됨 상태 + 지자기 식별 완료 시 채워짐)
+    # 현재 식별된 기구/약통 ID
     current_equipment_id: str | None
 
-    # 텀블러 2단계 상태: 'moving' | 'settled'
-    # 서버 재시작 시 초기값 'moving'으로 리셋, WebSocket 재연결로 복구
-    tumbler_state: TumblerState
+    # 약통 상태: 'idle' | 'moving' | 'pouring' | 'settled'
+    tumbler_state: BottleState
 
     # 최근 N개 센서 값 슬라이딩 윈도우 (deque — O(1) 추가/제거)
     recent_sensor_window: deque[SensorReading]

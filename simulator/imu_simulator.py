@@ -10,38 +10,57 @@ BOTTLE_PRESETS: dict[str, str] = {
     "BOTTLE_03": "BOTTLE_03: 저녁 처방약 (19:00)",
 }
 
-# 이동/복용 중 기본 accel 진폭 및 gyro 평균 (noise_level=1.0 기준)
-_MOVING_ACCEL_AMP  = 0.35   # g — 중력 기준 편차 진폭
-_MOVING_GYRO_MEAN  = 0.8    # rad/s
-_MOVING_GYRO_STD   = 0.4
+# 실측 데이터 기저값 (m/s^2)
+# 0도 보관 중 (IDLE)
+_BASE_0_DEG = (0.10, -0.05, 9.81)
 
-# 거치 완료 노이즈 (센서 자체 미세 노이즈)
-_SETTLED_ACCEL_STD = 0.015  # g
-_SETTLED_GYRO_STD  = 0.003  # rad/s
+# 45도 용기 집어들기/기울임 중 (PICKUP)
+_BASE_45_DEG = (6.45, 2.10, 6.20)
+
+# 110도 손바닥에 알약 털어넣기 (POURING) - AccZ 가 음수로 전환
+_BASE_110_DEG = (9.20, 1.80, -3.40)
 
 
-def generate_imu(bottle_state: str, noise_level: float) -> dict[str, float]:
+def generate_imu(
+    bottle_state: str,
+    tilt_angle: int = 0,
+    noise_level: float = 0.1,
+    trigger_impulse: bool = False,
+) -> dict[str, float]:
     """
-    약통 상태와 노이즈 레벨에 맞는 accel_magnitude, gyro_magnitude를 생성한다.
-
-    bottle_state : "이동/복용 중" ("moving") | "거치 완료" ("settled")
-    noise_level  : 0.0(노이즈 없음) ~ 1.0(최대 노이즈)
+    약통 상태, 기울기 각도(0, 45, 110), 노이즈 레벨에 기반하여
+    3축 가속도(acc_x, acc_y, acc_z) 및 기울기 state_deg 데이터를 생성한다.
     """
-    noise = max(noise_level, 0.05)  # 최소 기본 노이즈 유지
+    noise = max(noise_level, 0.02)  # 기본 노이즈 유지
 
-    is_moving = bottle_state in ("이동/복용 중", "moving")
-
-    if is_moving:
-        # 약통을 들어 올려 복용하는 중: 1.0g 기준으로 진폭이 큰 편차 + 활성 자이로
-        accel = 1.0 + random.gauss(0, _MOVING_ACCEL_AMP * noise)
-        gyro  = abs(random.gauss(_MOVING_GYRO_MEAN * noise, _MOVING_GYRO_STD * noise))
+    if tilt_angle >= 100 or "110" in bottle_state or "털어넣기" in bottle_state:
+        base_x, base_y, base_z = _BASE_110_DEG
+        state_deg = 110
+    elif tilt_angle >= 30 or "45" in bottle_state or "기울임" in bottle_state or "집어" in bottle_state:
+        base_x, base_y, base_z = _BASE_45_DEG
+        state_deg = 45
     else:
-        # 거치 완료: 중력만 측정(~1.0g), 자이로 ≈ 0
-        accel = 1.0 + random.gauss(0, _SETTLED_ACCEL_STD)
-        gyro  = abs(random.gauss(0, _SETTLED_GYRO_STD))
+        base_x, base_y, base_z = _BASE_0_DEG
+        state_deg = 0
+
+    acc_x = base_x + random.gauss(0, 0.3 * noise)
+    acc_y = base_y + random.gauss(0, 0.3 * noise)
+    acc_z = base_z + random.gauss(0, 0.3 * noise)
+
+    # 툭툭 털 때 발생하는 순간 충격/노이즈 시뮬레이션
+    if trigger_impulse or (state_deg == 110 and random.random() < 0.15 * noise):
+        acc_y += random.choice([+3.20, -2.50])
+        acc_x += random.choice([-1.50, +1.80])
+
+    # 1D 크기 계산 (기존 호환성 유지)
+    accel_magnitude = math.sqrt(acc_x**2 + acc_y**2 + acc_z**2) / 9.81
+    gyro_magnitude = 0.8 * noise if state_deg != 0 else 0.003
 
     return {
-        "accel_magnitude": round(accel, 4),
-        "gyro_magnitude":  round(gyro, 4),
+        "acc_x": round(acc_x, 3),
+        "acc_y": round(acc_y, 3),
+        "acc_z": round(acc_z, 3),
+        "state_deg": state_deg,
+        "accel_magnitude": round(accel_magnitude, 4),
+        "gyro_magnitude": round(gyro_magnitude, 4),
     }
-

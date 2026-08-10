@@ -103,61 +103,54 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             except json.JSONDecodeError:
                 continue
 
-            if 'accel_magnitude' not in data or 'gyro_magnitude' not in data:
-                continue
-
-            # timestamp 파싱
-            ts_raw = data.get('timestamp')
-            if ts_raw:
-                try:
-                    ts = datetime.fromisoformat(ts_raw)
-                except ValueError:
-                    ts = datetime.now(timezone.utc)
-            else:
-                ts = datetime.now(timezone.utc)
+            raw_acc_x = float(data.get('acc_x', 0.10))
+            raw_acc_y = float(data.get('acc_y', -0.05))
+            raw_acc_z = float(data.get('acc_z', 9.81))
+            bottle_id = str(data.get('bottle_id', 'BOTTLE_01'))
+            state_deg = int(data.get('state_deg', 0))
 
             # ── 1. 노이즈 필터 ────────────────────────────────────────────────
-            f_accel, f_gyro, f_mag_x, f_mag_y, f_mag_z = filter_sensor(
+            f_acc_x, f_acc_y, f_acc_z, f_accel, f_gyro = filter_sensor_3axis(
                 session.ema_state,
-                float(data['accel_magnitude']),
-                float(data['gyro_magnitude']),
-                float(data.get('mag_x', 0.0)),
-                float(data.get('mag_y', 0.0)),
-                float(data.get('mag_z', 0.0)),
+                raw_acc_x,
+                raw_acc_y,
+                raw_acc_z,
+                float(data.get('accel_magnitude', 1.0)),
+                float(data.get('gyro_magnitude', 0.0)),
             )
 
             # ── 2. 슬라이딩 윈도우 갱신 ──────────────────────────────────────
             session.recent_sensor_window.append(
-                SensorReading(accel_magnitude=f_accel, gyro_magnitude=f_gyro, timestamp=ts)
+                SensorReading(
+                    accel_magnitude=f_accel,
+                    gyro_magnitude=f_gyro,
+                    acc_x=f_acc_x,
+                    acc_y=f_acc_y,
+                    acc_z=f_acc_z,
+                    state_deg=state_deg,
+                    timestamp=ts,
+                )
             )
-            session.recent_mag_window.append((f_mag_x, f_mag_y, f_mag_z))
             session_cache.touch(user_id)
 
-            # ── 3. IMU 텀블러 상태 판별 ───────────────────────────────────────
+            # ── 3. 영양제 복용 감지 (AccZ < 0 및 xy_mag > 7.0 지속 시) ───────────
+            from pipeline.imu_state import detect_medication_intake, make_medication_taken_event
+            if detect_medication_intake(session.recent_sensor_window):
+                intake_event = make_medication_taken_event(bottle_id, timestamp=ts)
+                print(f'[handler] 💊 영양제 복용 감지 확정: {bottle_id} (AccZ={f_acc_z:.2f}, state_deg={state_deg})')
+                await manager.broadcast(user_id, intake_event)
+
+            # ── 4. IMU 텀블러/약통 상태 판별 ─────────────────────────────────
             prev_state = session.tumbler_state
             new_state = detect_tumbler_state(session.recent_sensor_window)
             session.tumbler_state = new_state
 
             if new_state != prev_state:
                 print(f'[handler] {user_id} 상태 전이: {prev_state} → {new_state} '
-                      f'(window={len(session.recent_sensor_window)}, '
-                      f'accel={f_accel:.3f}, gyro={f_gyro:.3f})')
-
-            # ── 진단: 50샘플(약 1초)마다 감지값 출력 ─────────────────────────
-            _diag_count += 1
-            if _diag_count % 50 == 0:
-                w = list(session.recent_sensor_window)
-                if w:
-                    _accel_dev = sum(abs(r.accel_magnitude - 1.0) for r in w) / len(w)
-                    _gyro_vals = [r.gyro_magnitude for r in w]
-                    _gyro_mean = sum(_gyro_vals) / len(_gyro_vals)
-                    _gyro_var  = sum((v - _gyro_mean) ** 2 for v in _gyro_vals) / len(_gyro_vals)
-                    print(f'[diag] {user_id} window={len(w)} state={session.tumbler_state} '
-                          f'accel_dev={_accel_dev:.4f}(th=0.04) gyro_var={_gyro_var:.4f}(th=0.40)')
+                      f'(acc_z={f_acc_z:.3f}, state_deg={state_deg})')
 
             state_event = make_state_event(new_state, prev_state, timestamp=ts)
             if state_event:
-                print(f'[handler] 브로드캐스트: {state_event["type"]} → {state_event["payload"]}')
                 await manager.broadcast(user_id, state_event)
 
             # ── 4. 지자기 지문 매칭 (이동→거치됨 전이 시에만) ────────────────
