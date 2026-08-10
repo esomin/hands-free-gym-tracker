@@ -1,4 +1,4 @@
-# Hands-Free Med & Supple Tracker (자율형 복약 및 순응도 관리 시스템)
+# Hands-Free Med Tracker (자율형 복약 및 순응도 관리 시스템)
 > **노-터치 6축 자이로·가속도 센서 기반 자율형 복약 추적 및 순응도 관리 시스템**
 
 ---

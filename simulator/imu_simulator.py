@@ -5,9 +5,9 @@ import math
 
 # 약통 정보 프리셋 메타데이터
 BOTTLE_PRESETS: dict[str, str] = {
-    "BOTTLE_01": "BOTTLE_01: 아침 혈압약 & 비타민 (08:00)",
-    "BOTTLE_02": "BOTTLE_02: 점심 오메가3 & 유산균 (12:30)",
-    "BOTTLE_03": "BOTTLE_03: 저녁 처방약 (19:00)",
+    "BOTTLE_01": "BOTTLE_01: 아침 유산균 (08:00)",
+    "BOTTLE_02": "BOTTLE_02: 점심 비타민 B (12:30)",
+    "BOTTLE_03": "BOTTLE_03: 취침 전 비염약 (22:30)",
 }
 
 # 실측 데이터 기저값 (m/s^2)
