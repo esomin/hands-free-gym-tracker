@@ -41,7 +41,7 @@ DEFAULT_BOTTLES = [
 
 
 async def create_indexes():
-    """인덱스 생성 및 초기 기본 약통 프리셋 시딩"""
+    """인덱스 생성 및 기본 약통 3종 프리셋 자동 보충(Upsert) 시딩"""
     db = get_db()
 
     # 인덱스 생성
@@ -49,8 +49,11 @@ async def create_indexes():
     await db["medication_logs"].create_index([("bottle_id", 1), ("taken_at", -1)])
     await db["medication_logs"].create_index([("taken_at", -1)])
 
-    # 약통 초기 시딩 (컬렉션이 비어있는 경우)
-    count = await db["bottles"].count_documents({})
-    if count == 0:
-        await db["bottles"].insert_many(DEFAULT_BOTTLES)
-        print("[mongo_client] 기본 약통 3종 프리셋 시딩 완료")
+    # 기본 약통 3종이 없으면 누락된 약통만 자동으로 보충 등록 (Upsert)
+    for bottle in DEFAULT_BOTTLES:
+        await db["bottles"].update_one(
+            {"bottle_id": bottle["bottle_id"]},
+            {"$setOnInsert": bottle},
+            upsert=True,
+        )
+    print("[mongo_client] 기본 약통 3종 프리셋 시딩 및 보충 완료")

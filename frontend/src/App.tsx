@@ -147,14 +147,6 @@ function App() {
         <div className="flex items-center gap-3 mb-4">
           <h1 className="text-2xl font-bold text-gray-800">Hands-Free Med Tracker</h1>
           <Badge color={badge.color} variant="light">{badge.label}</Badge>
-          <Button
-            size="xs"
-            variant="light"
-            color="teal"
-            onClick={() => loadData()}
-          >
-            새로고침
-          </Button>
         </div>
 
         {/* 탭1 — TODAY (상단 3개 통계 카드 가로 배치 + 하단 2열 약통 현황 & 복용 타임라인) */}

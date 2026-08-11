@@ -6,6 +6,12 @@ interface MedicationLogListProps {
   bottles: Bottle[];
 }
 
+const BOTTLE_NAME_FALLBACK: Record<string, string> = {
+  BOTTLE_01: '아침 유산균',
+  BOTTLE_02: '점심 비타민 B',
+  BOTTLE_03: '취침 전 비염약',
+};
+
 export const MedicationLogList: React.FC<MedicationLogListProps> = ({ logs, bottles }) => {
   const bottleMap = new Map(bottles.map((b) => [b.bottle_id, b.name]));
 
@@ -26,7 +32,7 @@ export const MedicationLogList: React.FC<MedicationLogListProps> = ({ logs, bott
 
       <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
         {logs.map((log) => {
-          const bottleName = bottleMap.get(log.bottle_id) || log.bottle_id;
+          const bottleName = bottleMap.get(log.bottle_id) || BOTTLE_NAME_FALLBACK[log.bottle_id] || log.bottle_id;
           const logDate = new Date(log.taken_at);
 
           return (
