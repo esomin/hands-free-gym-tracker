@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Badge, Button, Text } from '@mantine/core';
 import { useWebSocket } from './hooks/useWebSocket';
 import { fetchBottles, fetchMedicationLogs, fetchAdherenceStats } from './api/client';
 import type { Bottle, MedicationLog, AdherenceStats, BottleState } from './types';
@@ -8,9 +9,46 @@ import { AdherenceDashboard } from './features/medication/AdherenceDashboard';
 
 const WS_URL = 'ws://localhost:8000/ws/user-1';
 
+type LogTab = 'today' | 'history';
+
+const tabBase: React.CSSProperties = {
+  writingMode: 'vertical-rl',
+  textTransform: 'uppercase',
+  padding: '12px 6px',
+  cursor: 'pointer',
+  border: 'none',
+  borderTopLeftRadius: '6px',
+  borderBottomLeftRadius: '6px',
+  marginBottom: '8px',
+  fontSize: '11px',
+  fontWeight: 700,
+  letterSpacing: '0.05em',
+  color: '#a5b4fc',
+  backgroundColor: 'transparent',
+  transition: 'all 0.15s ease',
+};
+
+const tabActive: React.CSSProperties = {
+  color: '#4f46e5',
+  backgroundColor: '#f8fafc',
+};
+
+const tabLabel: React.CSSProperties = {
+  transform: 'rotate(180deg)',
+  display: 'inline-block',
+};
+
+const STATUS_BADGE = {
+  connected: { color: 'green', label: '실시간 연동 완료' },
+  connecting: { color: 'yellow', label: '연결 중...' },
+  reconnecting: { color: 'yellow', label: '재연결 중...' },
+  disconnected: { color: 'gray', label: '연결 대기' },
+};
+
 function App() {
   const { status, lastEvent } = useWebSocket(WS_URL);
 
+  const [activeLogTab, setActiveLogTab] = useState<LogTab>('today');
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [logs, setLogs] = useState<MedicationLog[]>([]);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
@@ -32,7 +70,6 @@ function App() {
       setLogs(lList);
       setStats(sData);
 
-      // 당일 복용 완료된 약통 맵 작성
       const todayStr = new Date().toISOString().slice(0, 10);
       const takenMap: Record<string, boolean> = {};
       const timeMap: Record<string, string> = {};
@@ -71,7 +108,6 @@ function App() {
         setLastTakenTimes((prev) => ({ ...prev, [bId]: takenAt }));
       }
 
-      // 실시간 로그 추가
       const newLog: MedicationLog = {
         id: `realtime-${Date.now()}`,
         bottle_id: bId,
@@ -80,8 +116,6 @@ function App() {
         status: 'SUCCESS',
       };
       setLogs((prev) => [newLog, ...prev]);
-
-      // 통계 갱신
       fetchAdherenceStats().then(setStats).catch(() => {});
     }
 
@@ -91,89 +125,86 @@ function App() {
     }
   }, [lastEvent]);
 
-  const getStatusBadge = () => {
-    switch (status) {
-      case 'connected':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-[#5DD39E] border border-[#5DD39E]/30">
-            <span className="w-2 h-2 rounded-full bg-[#5DD39E] animate-pulse"></span>
-            실시간 연동 완료
-          </span>
-        );
-      case 'connecting':
-      case 'reconnecting':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-600/30">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            연결 중...
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-            연결 대기
-          </span>
-        );
-    }
-  };
+  const badge = STATUS_BADGE[status];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 md:p-10">
-      <div className="max-w-6xl mx-auto">
-        {/* 헤더 */}
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 mb-8 border-b border-slate-800 gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-100 tracking-tight">
-                Hands-Free Med Tracker
-              </h1>
-              {getStatusBadge()}
-            </div>
-            <p className="text-sm text-slate-400 mt-1">
-              6축 자이로·가속도(IMU) 센서 기반 자율형 복약 및 순응도 관리 관제 시스템
-            </p>
-          </div>
-
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* 수직 탭 — 화면 맨 왼쪽 고정 (Gym Tracker 오리지널 구조) */}
+      <div className="flex flex-col pt-16 pl-1 bg-indigo-950">
+        {(['today', 'history'] as LogTab[]).map((tab) => (
           <button
+            key={tab}
+            onClick={() => setActiveLogTab(tab)}
+            style={{ ...tabBase, ...(activeLogTab === tab ? tabActive : {}) }}
+          >
+            <span style={tabLabel}>{tab === 'today' ? 'TODAY' : 'HISTORY'}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 메인 컨텐츠 */}
+      <div className="flex-1 p-4" style={{ borderLeft: '1px solid #dee2e6' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <h1 className="text-2xl font-bold text-gray-800">Hands-Free Med Tracker</h1>
+          <Badge color={badge.color} variant="light">{badge.label}</Badge>
+          <Button
+            size="xs"
+            variant="light"
+            color="teal"
             onClick={() => loadData()}
-            className="self-start md:self-auto px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
           >
             새로고침
-          </button>
-        </header>
+          </Button>
+        </div>
 
-        {/* 복약 순응도 대시보드 */}
-        <AdherenceDashboard stats={stats} />
+        {/* 탭1 — TODAY (기존 Gym Tracker 3컬럼 레이아웃에 새로 생성한 약통 컴포넌트 탑재) */}
+        {activeLogTab === 'today' && (
+          <div className="flex flex-col gap-4 md:flex-row">
+            {/* 1열: 등록 약통 현황 */}
+            <div className="w-full md:w-[33%]">
+              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+                <Text fw={600} size="sm" c="dimmed">약통별 복용 현황 ({bottles.length})</Text>
+              </div>
+              <div className="space-y-4">
+                {bottles.map((bottle) => (
+                  <BottleCard
+                    key={bottle.bottle_id}
+                    bottle={bottle}
+                    isTakenToday={!!takenBottles[bottle.bottle_id]}
+                    currentState={bottleStates[bottle.bottle_id] || 'idle'}
+                    lastTakenTime={lastTakenTimes[bottle.bottle_id]}
+                  />
+                ))}
+              </div>
+            </div>
 
-        {/* 약통 현황 & 복용 이력 타임라인 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* 좌측: 등록 약통 현황 */}
-          <div>
-            <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center justify-between">
-              <span>약통별 복용 현황</span>
-              <span className="text-xs text-slate-400 font-mono font-normal">
-                {bottles.length}개 약통 등록됨
-              </span>
-            </h2>
+            {/* 2열: 복용 순응도 대시보드 요약 */}
+            <div className="w-full md:w-[33%]">
+              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+                <Text fw={600} size="sm" c="dimmed">순응도 통계</Text>
+              </div>
+              <AdherenceDashboard stats={stats} />
+            </div>
 
-            <div className="space-y-4">
-              {bottles.map((bottle) => (
-                <BottleCard
-                  key={bottle.bottle_id}
-                  bottle={bottle}
-                  isTakenToday={!!takenBottles[bottle.bottle_id]}
-                  currentState={bottleStates[bottle.bottle_id] || 'idle'}
-                  lastTakenTime={lastTakenTimes[bottle.bottle_id]}
-                />
-              ))}
+            {/* 3열: 실시간 복용 이력 타임라인 */}
+            <div className="w-full md:w-[33%]">
+              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+                <Text fw={600} size="sm" c="dimmed">복용 타임라인</Text>
+              </div>
+              <MedicationLogList logs={logs} bottles={bottles} />
             </div>
           </div>
+        )}
 
-          {/* 우측: 실시간 복용 이력 타임라인 */}
-          <div>
+        {/* 탭2 — HISTORY */}
+        {activeLogTab === 'history' && (
+          <div className="w-full md:w-[33%]">
+            <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
+              <Text fw={600} size="sm" c="dimmed">누적 기록 모니터링</Text>
+            </div>
             <MedicationLogList logs={logs} bottles={bottles} />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
