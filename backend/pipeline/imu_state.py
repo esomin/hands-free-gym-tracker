@@ -15,7 +15,7 @@ WINDOW_SIZE = 100
 POURING_ACC_Z_MAX = 0.0
 POURING_ACC_XY_MIN = 7.0
 # 최소 0.6초 (50Hz 기준 30 샘플) 지속 시 복용 감지 (시뮬레이터 5초 시나리오 및 실제 반응속도 호환)
-INTAKE_SUSTAINED_SAMPLES = 30
+INTAKE_SUSTAINED_SAMPLES = 20
 
 # |accel − 1.0 g| 이동 평균 임계값 (g)
 MOVE_ACCEL_THRESHOLD = 0.04
@@ -46,8 +46,8 @@ def detect_medication_intake(window: deque[SensorReading]) -> bool:
 
     조건:
     1. AccZ < 0.0 m/s^2 (대각선 ~ 110도 기울임)
-    2. sqrt(AccX^2 + AccY^2) > 7.0 m/s^2
-    3. 최근 INTAKE_SUSTAINED_SAMPLES (50샘플, 약 1초) 이상 유지
+    2. sqrt(AccX^2 + AccY^2) > 6.5 m/s^2
+    3. 최근 INTAKE_SUSTAINED_SAMPLES (25샘플) 이상 유지
     """
     if len(window) < INTAKE_SUSTAINED_SAMPLES:
         return False
@@ -56,7 +56,7 @@ def detect_medication_intake(window: deque[SensorReading]) -> bool:
 
     for r in recent_samples:
         xy_mag = math.sqrt(r.acc_x**2 + r.acc_y**2)
-        if not (r.acc_z < POURING_ACC_Z_MAX and xy_mag > POURING_ACC_XY_MIN):
+        if not (r.acc_z < POURING_ACC_Z_MAX and xy_mag > 6.5):
             return False
 
     return True
