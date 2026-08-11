@@ -133,12 +133,25 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             )
             session_cache.touch(user_id)
 
-            # ── 3. 영양제 복용 감지 (AccZ < 0 및 xy_mag > 7.0 지속 시) ───────────
+            # ── 3. 영양제 복용 감지 및 MongoDB 영속화 ───────────
             from pipeline.imu_state import detect_medication_intake, make_medication_taken_event
+            from db.mongo_client import medication_logs
             if detect_medication_intake(session.recent_sensor_window):
                 intake_event = make_medication_taken_event(bottle_id, timestamp=ts)
                 print(f'[handler] 💊 영양제 복용 감지 확정: {bottle_id} (AccZ={f_acc_z:.2f}, state_deg={state_deg})')
                 await manager.broadcast(user_id, intake_event)
+
+                # MongoDB 복용 이력 자동 영속화
+                try:
+                    await medication_logs().insert_one({
+                        "bottle_id": bottle_id,
+                        "event_type": "settled",
+                        "taken_at": ts.isoformat(),
+                        "status": "SUCCESS",
+                    })
+                    print(f'[handler] MongoDB 복용 로그 영속화 완료: {bottle_id}')
+                except Exception as e:
+                    print(f'[handler] MongoDB 저장 실패: {e}')
 
             # ── 4. IMU 텀블러/약통 상태 판별 ─────────────────────────────────
             prev_state = session.tumbler_state

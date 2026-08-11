@@ -4,18 +4,17 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.mongo_client import create_indexes
-from pipeline.mag_fingerprint import fingerprint_store
-from routers import demo, equipment, log, routine, session
+from routers import bottle, log
 from websocket.handler import handle_sensor_stream, manager
 
-app = FastAPI(title="Hands-Free Gym Tracker API")
+app = FastAPI(title="Hands-Free Med Tracker API")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",                              # Vite dev server
-        "https://handsfree-gym-tracker.web.app",             # Firebase Hosting
-        "https://handsfree-gym-tracker.firebaseapp.com",     # Firebase Hosting (대체 도메인)
+        "https://handsfree-med-tracker.web.app",              # Firebase Hosting
+        "https://handsfree-med-tracker.firebaseapp.com",      # Firebase Hosting (대체 도메인)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -23,11 +22,8 @@ app.add_middleware(
 )
 
 # REST API 라우터 등록
-app.include_router(log.router,       prefix="/api")
-app.include_router(routine.router,   prefix="/api")
-app.include_router(equipment.router, prefix="/api")
-app.include_router(session.router,   prefix="/api")
-app.include_router(demo.router,      prefix="/api")
+app.include_router(bottle.router, prefix="/api")
+app.include_router(log.router,    prefix="/api")
 
 
 # ── 앱 시작/종료 이벤트 ───────────────────────────────────────────────────────
@@ -36,9 +32,9 @@ app.include_router(demo.router,      prefix="/api")
 async def startup():
     try:
         await create_indexes()
-        await fingerprint_store.load_from_db()
+        print("[startup] MongoDB 인덱스 및 약통 데이터베이스 준비 완료")
     except Exception as e:
-        print(f"[startup] MongoDB 연결 실패 (WebSocket은 정상 동작): {e}")
+        print(f"[startup] MongoDB 연결 경고 (WebSocket은 정상 동작): {e}")
 
 
 # ── WebSocket 엔드포인트 ──────────────────────────────────────────────────────
@@ -48,8 +44,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
     """
     시뮬레이터와 프론트엔드가 공통으로 연결하는 WebSocket 엔드포인트.
 
-    - 시뮬레이터: 센서 데이터(accel_magnitude, gyro_magnitude) 를 전송
-    - 프론트엔드: 상태 변화 이벤트(tumbler_state_changed 등) 를 수신
+    - 시뮬레이터: 3축 자이로·가속도(IMU) 센서 데이터 및 약통 ID 전송
+    - 프론트엔드: 복용 완료(medication_taken) 이벤트 실시간 수신
     """
     await handle_sensor_stream(websocket, user_id)
 
@@ -58,51 +54,23 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "app": "Hands-Free Med Tracker"}
 
 
 # ── 개발 테스트용 ─────────────────────────────────────────────────────────────
-# 실제 파이프라인 없이 이벤트 브로드캐스트를 수동으로 트리거한다
 
-@app.post("/dev/trigger/{user_id}/equipment-unknown")
-async def trigger_equipment_unknown(user_id: str):
-    """미등록 기구 감지 이벤트를 강제 브로드캐스트 — 모달 팝업 확인용"""
+@app.post("/dev/trigger/{user_id}/medication-taken")
+async def trigger_medication_taken(user_id: str, bottle_id: str = "BOTTLE_01"):
+    """복용 완료 이벤트를 수동으로 강제 브로드캐스트 — 프론트엔드 UI 확인용"""
+    now_iso = datetime.now(timezone.utc).isoformat()
     await manager.broadcast(user_id, {
-        "type": "equipment_unknown",
+        "type": "medication_taken",
         "payload": {
-            "rawFingerprintId": "test-fingerprint-001",
-            "detectedAt": datetime.now(timezone.utc).isoformat(),
+            "bottle_id": bottle_id,
+            "taken_at": now_iso,
+            "status": "SUCCESS",
+            "state_deg": 110,
         },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_iso,
     })
-    return {"triggered": True}
-
-
-@app.post("/dev/trigger/{user_id}/tumbler-state")
-async def trigger_tumbler_state(user_id: str, state: str = "settled"):
-    """텀블러 상태 전이 이벤트를 강제 브로드캐스트 — 뱃지 변경 확인용"""
-    await manager.broadcast(user_id, {
-        "type": "tumbler_state_changed",
-        "payload": {
-            "state": state,
-            "transitioned_at": datetime.now(timezone.utc).isoformat(),
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-    return {"triggered": True, "state": state}
-
-
-@app.post("/dev/trigger/{user_id}/equipment-detected")
-async def trigger_equipment_detected(user_id: str):
-    """기구 인식 이벤트를 강제 브로드캐스트 — SmartDefault 카드 렌더링 확인용"""
-    await manager.broadcast(user_id, {
-        "type": "equipment_detected",
-        "payload": {
-            "equipmentId": "test-equipment-001",
-            "equipmentName": "레그프레스",
-            "confidence": 0.99,
-            "detectedAt": datetime.now(timezone.utc).isoformat(),
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-    return {"triggered": True}
+    return {"triggered": True, "bottle_id": bottle_id}
