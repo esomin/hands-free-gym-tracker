@@ -139,8 +139,11 @@ with col_control:
             for angle, state_desc, duration, pct in steps:
                 st.session_state.tilt_angle = angle
                 st.session_state.bottle_state = state_desc
+                _params["tilt_angle"] = angle
+                _params["bottle_state"] = state_desc
                 if angle == 110 and "충격" in state_desc:
                     st.session_state.trigger_impulse = True
+                    _params["trigger_impulse"] = True
 
                 status_box.write(f"{state_desc}")
                 progress_bar.progress(pct, text=f"{state_desc} ({pct}%)")
