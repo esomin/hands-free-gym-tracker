@@ -6,6 +6,7 @@ import type { Bottle, MedicationLog, AdherenceStats, BottleState } from './types
 import { BottleCard } from './features/medication/BottleCard';
 import { MedicationLogList } from './features/medication/MedicationLogList';
 import { AdherenceDashboard } from './features/medication/AdherenceDashboard';
+import { MedicationHistoryTab } from './features/medication/MedicationHistoryTab';
 
 const WS_URL = 'ws://localhost:8000/ws/user-1';
 
@@ -153,7 +154,10 @@ function App() {
         {activeLogTab === 'today' && (
           <div>
             {/* 상단 1열 가로 배치: 복약 순응도 대시보드 */}
-            <AdherenceDashboard stats={stats} />
+            <AdherenceDashboard
+              stats={stats}
+              activeDaysCount={new Set(logs.map((l) => l.taken_at.slice(0, 10))).size || 1}
+            />
 
             {/* 하단 2열 배치: 좌측 약통별 복용 현황, 우측 실시간 복용 이력 타임라인 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -189,12 +193,7 @@ function App() {
 
         {/* 탭2 — HISTORY */}
         {activeLogTab === 'history' && (
-          <div className="w-full md:w-[33%]">
-            <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-              <Text fw={600} size="sm" c="dimmed">누적 기록 모니터링</Text>
-            </div>
-            <MedicationLogList logs={logs} bottles={bottles} />
-          </div>
+          <MedicationHistoryTab logs={logs} bottles={bottles} stats={stats} />
         )}
       </div>
     </div>

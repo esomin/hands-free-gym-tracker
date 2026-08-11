@@ -5,7 +5,10 @@ interface AdherenceDashboardProps {
   stats: AdherenceStats | null;
 }
 
-export const AdherenceDashboard: React.FC<AdherenceDashboardProps> = ({ stats }) => {
+export const AdherenceDashboard: React.FC<AdherenceDashboardProps & { activeDaysCount?: number }> = ({
+  stats,
+  activeDaysCount = 1,
+}) => {
   const rate = stats?.adherence_rate ?? 0;
   const streak = stats?.streak_days ?? 0;
   const total = stats?.total_logs ?? 0;
@@ -30,16 +33,19 @@ export const AdherenceDashboard: React.FC<AdherenceDashboardProps> = ({ stats })
         <div className="text-2xl font-extrabold text-amber-500 font-mono">
           {streak} <span className="text-xs font-sans font-normal text-gray-400">일 연속</span>
         </div>
-        <div className="text-[11px] text-gray-400 mt-1">매일 정해진 시각 복용 수칙을 준수하고 있습니다.</div>
+        <div className="text-[11px] text-gray-400 mt-1">매일 빠짐없이 연속으로 챙겨 드신 기간입니다.</div>
       </div>
 
-      {/* 3. 누적 복용 완료 횟수 */}
+      {/* 3. 누적 성공 기록 */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs">
         <div className="text-xs font-semibold text-gray-500 mb-1">누적 성공 기록</div>
-        <div className="text-2xl font-extrabold text-gray-900 font-mono">
-          {total} <span className="text-xs font-sans font-normal text-gray-400">회</span>
+        <div className="text-2xl font-extrabold text-gray-900 font-mono flex items-baseline gap-2">
+          <span>{total} <span className="text-xs font-sans font-normal text-gray-400">회</span></span>
+          <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-sans">
+            총 {activeDaysCount}일간
+          </span>
         </div>
-        <div className="text-[11px] text-gray-400 mt-1">Zero-Touch 센서로 자동 감지되어 영속화되었습니다.</div>
+        <div className="text-[11px] text-gray-400 mt-1">서비스 시작 후 총 {activeDaysCount}일 동안 {total}회 복용을 완료했습니다.</div>
       </div>
     </div>
   );
