@@ -1,0 +1,321 @@
+INFO:     connection open
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.44, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.36, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] user-1 상태 전이: moving → pouring (acc_z=-3.357, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.38, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.38, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.45, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.45, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.38, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.38, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.36, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.44, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.44, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.36, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.37, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.42, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.37, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.43, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.38, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.36, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.36, state_deg=110)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.38, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.40, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.37, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.37, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.39, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] 💊 영양제 복용 감지 확정: BOTTLE_01 (AccZ=-3.41, state_deg=110)
+[handler] MongoDB 복용 로그 영속화 완료: BOTTLE_01
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+[handler] user-1 상태 전이: pouring → settled (acc_z=2.846, state_deg=45)
+INFO:     127.0.0.1:63557 - "GET /api/logs/stats HTTP/1.1" 200 OK
+INFO:     connection closed

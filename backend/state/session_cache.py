@@ -45,6 +45,9 @@ class SessionState:
     # 마지막 센서 이벤트 수신 시각 (모니터링 및 비활성 세션 판단용)
     last_active_at: datetime
 
+    # 마지막 복용 감지 시각 (중복 감지 방지용)
+    last_intake_at: datetime | None = None
+
 
 # ── LRU 세션 캐시 ─────────────────────────────────────────────────────────────
 

@@ -39,6 +39,14 @@ def _serialize(doc: dict) -> dict:
     return doc
 
 
+@router.delete("", response_model=dict)
+@router.delete("/", response_model=dict)
+async def clear_logs():
+    """복용 이력 로그 전체 삭제"""
+    res = await medication_logs().delete_many({})
+    return {"status": "success", "deleted_count": res.deleted_count}
+
+
 @router.get("", response_model=List[MedicationLogResponse])
 @router.get("/", response_model=List[MedicationLogResponse])
 async def get_logs(
