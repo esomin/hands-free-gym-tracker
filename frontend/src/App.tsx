@@ -1,400 +1,180 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useWebSocket } from './hooks/useWebSocket';
+import { fetchBottles, fetchMedicationLogs, fetchAdherenceStats } from './api/client';
+import type { Bottle, MedicationLog, AdherenceStats, BottleState } from './types';
+import { BottleCard } from './features/medication/BottleCard';
+import { MedicationLogList } from './features/medication/MedicationLogList';
+import { AdherenceDashboard } from './features/medication/AdherenceDashboard';
 
-import { Badge, Button, Group, Modal, Text } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-
-import {
-  completeWorkoutLog,
-  createWorkoutLog,
-  deleteInProgressLog,
-  fetchSessionSnapshot,
-  registerEquipment,
-  startDemoScenario,
-  updateWorkoutLogSets,
-} from './api/client';
-import { ERROR_MESSAGES } from './constants/errorMessages';
-import { Dashboard } from './features/workout/Dashboard';
-import { DemoTimeline, buildDemoLogEntry } from './features/demo/DemoTimeline';
-import { WorkoutHistoryCalendar } from './features/history/WorkoutHistoryCalendar';
-import type { DemoLogEntry } from './features/demo/DemoTimeline';
-import { EquipmentRegisterModal } from './features/equipment/EquipmentRegisterModal';
-import { EquipmentStatus } from './features/equipment/EquipmentStatus';
-import { SmartDefault } from './features/workout/SmartDefault';
-import type { SetEntry } from './features/workout/SmartDefault';
-import { WorkoutInProgress } from './features/workout/WorkoutInProgress';
-import { useWebSocketContext } from './contexts/WebSocketContext';
-import { useDashboard } from './hooks/useDashboard';
-import { useWorkoutLog } from './hooks/useWorkoutLog';
-import type {
-  EquipmentDetectedPayload,
-  TumblerStatePayload,
-  UnknownEquipmentPayload,
-} from './types';
-
-const USER_ID = 'user-1';
-
-
-const STATUS_BADGE: Record<string, { color: string; label: string }> = {
-  connecting: { color: 'yellow', label: '연결 중' },
-  connected: { color: 'green', label: '연결됨' },
-  reconnecting: { color: 'orange', label: '재연결 중' },
-  disconnected: { color: 'gray', label: '연결 끊김' },
-};
-
-type LogTab = 'today' | 'history';
-
-const tabBase: React.CSSProperties = {
-  width: '36px',
-  height: '80px',
-  padding: 0,
-  border: '1px solid #dee2e6',
-  borderRight: 'none',
-  borderRadius: '6px 0 0 6px',
-  backgroundColor: '#f1f3f5',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  marginBottom: '4px',
-  marginRight: '-1px',
-};
-
-const tabActive: React.CSSProperties = {
-  backgroundColor: '#ffffff',
-  boxShadow: '-2px 0 4px rgba(0,0,0,0.06)',
-  zIndex: 10,
-};
-
-const tabLabel: React.CSSProperties = {
-  writingMode: 'vertical-rl',
-  textOrientation: 'mixed',
-  fontSize: '11px',
-  fontWeight: 600,
-  letterSpacing: '0.05em',
-  userSelect: 'none',
-  color: '#495057',
-};
+const WS_URL = 'ws://localhost:8000/ws/user-1';
 
 function App() {
-  const { lastEvent, status } = useWebSocketContext();
-  const { smartDefault, isLoading, fetchForEquipment } = useWorkoutLog(USER_ID);
-  const { logs, isLoading: isDashboardLoading, refetch } = useDashboard(USER_ID);
-  const [activeLogTab, setActiveLogTab] = useState<LogTab>('today');
+  const { status, lastEvent } = useWebSocket(WS_URL);
 
-  const [equipment, setEquipment] = useState<EquipmentDetectedPayload | null>(null);
-  const [tumblerState, setTumblerState] = useState<TumblerStatePayload | null>(null);
-  const [unknownFingerprint, setUnknownFingerprint] = useState<UnknownEquipmentPayload | null>(null);
+  const [bottles, setBottles] = useState<Bottle[]>([]);
+  const [logs, setLogs] = useState<MedicationLog[]>([]);
+  const [stats, setStats] = useState<AdherenceStats | null>(null);
 
-  // 진행 중인 운동 로그 상태
-  const [inProgressLogId, setInProgressLogId] = useState<string | null>(null);
-  const [inProgressSets, setInProgressSets] = useState<SetEntry[]>([]);
-  // useEffect 스테일 클로저 방지: inProgressLogId 최신값을 ref로 유지
-  const inProgressLogIdRef = useRef(inProgressLogId);
-  inProgressLogIdRef.current = inProgressLogId;
+  // 실시간 약통별 복용 완료 여부 및 현재 각도 상태
+  const [takenBottles, setTakenBottles] = useState<Record<string, boolean>>({});
+  const [bottleStates, setBottleStates] = useState<Record<string, BottleState>>({});
+  const [lastTakenTimes, setLastTakenTimes] = useState<Record<string, string>>({});
 
-  // 기구 변경 시 미완료 로그 처리 모달 상태
-  const [logActionModal, setLogActionModal] = useState<{
-    open: boolean;
-    nextEquipment: EquipmentDetectedPayload | null;
-  }>({ open: false, nextEquipment: null });
+  // 데이터 로드
+  const loadData = useCallback(async () => {
+    try {
+      const [bList, lList, sData] = await Promise.all([
+        fetchBottles(),
+        fetchMedicationLogs(),
+        fetchAdherenceStats(),
+      ]);
+      setBottles(bList);
+      setLogs(lList);
+      setStats(sData);
 
-  // 데모 실행 중 여부 (버튼 비활성화에 사용)
-  const [isDemoRunning, setIsDemoRunning] = useState(false);
+      // 당일 복용 완료된 약통 맵 작성
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const takenMap: Record<string, boolean> = {};
+      const timeMap: Record<string, string> = {};
 
-  // 데모 타임라인 로그
-  const [demoLogs, setDemoLogs] = useState<DemoLogEntry[]>([]);
-  const demoStartedAt = useRef<number | null>(null);
-
-  // 마운트 시 세션 스냅샷으로 상태 복원 (새로고침 / 앱 재진입 대응)
-  useEffect(() => {
-    fetchSessionSnapshot(USER_ID)
-      .then((snapshot) => {
-        if (snapshot.tumbler_state === 'settled') {
-          setTumblerState({ state: 'settled', transitionedAt: new Date().toISOString() });
+      lList.forEach((log) => {
+        if (log.taken_at.slice(0, 10) === todayStr) {
+          takenMap[log.bottle_id] = true;
         }
-        if (snapshot.equipment) {
-          setEquipment({
-            equipmentId: snapshot.equipment.equipment_id,
-            equipmentName: snapshot.equipment.equipment_name,
-            confidence: snapshot.equipment.confidence,
-            detectedAt: new Date().toISOString(),
-          });
-          fetchForEquipment(snapshot.equipment.equipment_id);
+        if (!timeMap[log.bottle_id] || new Date(log.taken_at) > new Date(timeMap[log.bottle_id])) {
+          timeMap[log.bottle_id] = log.taken_at;
         }
-        if (snapshot.in_progress_log) {
-          setInProgressLogId(snapshot.in_progress_log.log_id);
-          setInProgressSets(
-            snapshot.in_progress_log.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
-          );
-        }
-        // 새로고침 시 데모가 실행 중이면 버튼 비활성화 복원
-        if (snapshot.is_demo_running) {
-          setIsDemoRunning(true);
-        }
-      })
-      .catch(() => { });
+      });
+
+      setTakenBottles(takenMap);
+      setLastTakenTimes(timeMap);
+    } catch (e) {
+      console.warn('데이터 로딩 오류:', e);
+    }
   }, []);
 
   useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // 실시간 WebSocket 이벤트 수신 시 상태 갱신
+  useEffect(() => {
     if (!lastEvent) return;
 
-    // 데모 이벤트 수신 시 타임라인 로그에 항목 추가
-    if (demoStartedAt.current !== null) {
-      const elapsed = Math.floor((Date.now() - demoStartedAt.current) / 1000);
-      const entry = buildDemoLogEntry(
-        { type: lastEvent.type, payload: lastEvent.payload as Record<string, unknown> },
-        elapsed,
-      );
-      if (entry) setDemoLogs((prev) => [...prev, entry]);
-    }
+    if (lastEvent.type === 'medication_taken') {
+      const payload = lastEvent.payload as any;
+      const bId = payload.bottle_id;
+      const takenAt = payload.taken_at ?? payload.timestamp;
 
-    if (lastEvent.type === 'equipment_detected') {
-      // 기구 변경 시 미완료 로그가 있으면 처리 모달을 띄움
-      if (inProgressLogIdRef.current) {
-        setLogActionModal({ open: true, nextEquipment: lastEvent.payload });
-        return;
+      setTakenBottles((prev) => ({ ...prev, [bId]: true }));
+      if (takenAt) {
+        setLastTakenTimes((prev) => ({ ...prev, [bId]: takenAt }));
       }
-      setEquipment(lastEvent.payload);
-      fetchForEquipment(lastEvent.payload.equipmentId);
+
+      // 실시간 로그 추가
+      const newLog: MedicationLog = {
+        id: `realtime-${Date.now()}`,
+        bottle_id: bId,
+        event_type: 'settled',
+        taken_at: takenAt || new Date().toISOString(),
+        status: 'SUCCESS',
+      };
+      setLogs((prev) => [newLog, ...prev]);
+
+      // 통계 갱신
+      fetchAdherenceStats().then(setStats).catch(() => {});
     }
 
-    if (lastEvent.type === 'tumbler_state_changed') setTumblerState(lastEvent.payload);
-    if (lastEvent.type === 'equipment_unknown') setUnknownFingerprint(lastEvent.payload);
-
-    // 데모 시나리오: 백엔드가 직접 생성한 운동 로그를 프론트엔드 상태에 반영
-    if (lastEvent.type === 'demo_workout_started') {
-      setInProgressLogId(lastEvent.payload.logId);
-      setInProgressSets(lastEvent.payload.sets);
-    }
-    if (lastEvent.type === 'demo_workout_completed') {
-      setInProgressLogId(null);
-      setInProgressSets([]);
-      refetch();
-    }
-    // 전체 시나리오 완료 시 버튼 복귀
-    if (lastEvent.type === 'demo_scenario_completed') {
-      setIsDemoRunning(false);
-    }
-    // 데모 로그 삭제 완료 시: 프론트엔드 상태 초기화 + 대시보드 갱신
-    // (재시작 시 이전 inProgressLogId가 남아 equipment_detected를 막는 것을 방지)
-    if (lastEvent.type === 'demo_logs_cleared') {
-      setInProgressLogId(null);
-      setInProgressSets([]);
-      setLogActionModal({ open: false, nextEquipment: null });
-      refetch();
+    if (lastEvent.type === 'bottle_state_changed') {
+      const { state } = lastEvent.payload;
+      setBottleStates((prev) => ({ ...prev, BOTTLE_01: state }));
     }
   }, [lastEvent]);
 
-  async function handleRegister(equipmentName: string) {
-    if (!unknownFingerprint) return;
-    const registered = await registerEquipment(USER_ID, equipmentName);
-    setEquipment(registered);
-    setUnknownFingerprint(null);
-    fetchForEquipment(registered.equipmentId);
-  }
-
-  async function handleSmartDefaultConfirm(sets: SetEntry[]) {
-    if (!equipment) return;
-    try {
-      const logId = await createWorkoutLog(
-        USER_ID,
-        equipment.equipmentId,
-        equipment.equipmentName,
-        sets,
-      );
-      setInProgressLogId(logId);
-      setInProgressSets(sets);
-    } catch (err) {
-      notifications.show({
-        color: 'red',
-        message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
-      });
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'connected':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-[#5DD39E] border border-[#5DD39E]/30">
+            <span className="w-2 h-2 rounded-full bg-[#5DD39E] animate-pulse"></span>
+            실시간 연동 완료
+          </span>
+        );
+      case 'connecting':
+      case 'reconnecting':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-600/30">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+            연결 중...
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+            연결 대기
+          </span>
+        );
     }
-  }
-
-  // 기구 변경 확인 후 공통: 새 기구로 전환
-  function applyNextEquipment() {
-    const next = logActionModal.nextEquipment;
-    if (!next) return;
-    setInProgressLogId(null);
-    setInProgressSets([]);
-    setEquipment(next);
-    fetchForEquipment(next.equipmentId);
-    setLogActionModal({ open: false, nextEquipment: null });
-  }
-
-  // 미완료 로그 삭제 후 기구 전환
-  async function handleDeleteAndContinue() {
-    try {
-      await deleteInProgressLog(USER_ID);
-    } catch {
-      // 삭제 실패해도 상태는 초기화하여 진행
-    }
-    applyNextEquipment();
-  }
-
-  // 미완료 로그 저장(완료 처리) 후 기구 전환
-  async function handleSaveAndContinue() {
-    if (!inProgressLogId) return;
-    try {
-      await completeWorkoutLog(inProgressLogId);
-      refetch();
-    } catch (err) {
-      notifications.show({
-        color: 'red',
-        message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
-      });
-    }
-    applyNextEquipment();
-  }
-
-  async function handleComplete() {
-    if (!inProgressLogId) return;
-    try {
-      await completeWorkoutLog(inProgressLogId);
-      setInProgressLogId(null);
-      setInProgressSets([]);
-      refetch();
-    } catch (err) {
-      notifications.show({
-        color: 'red',
-        message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
-      });
-    }
-  }
-
-  async function handleUpdateSets(sets: SetEntry[]) {
-    if (!inProgressLogId) return;
-    try {
-      await updateWorkoutLogSets(inProgressLogId, sets);
-      setInProgressSets(sets);
-    } catch (err) {
-      notifications.show({
-        color: 'red',
-        message: err instanceof Error ? err.message : ERROR_MESSAGES.api.serverError,
-      });
-    }
-  }
-
-  const badge = STATUS_BADGE[status];
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 md:p-10">
+      <div className="max-w-6xl mx-auto">
+        {/* 헤더 */}
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 mb-8 border-b border-slate-800 gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-100 tracking-tight">
+                Hands-Free Med Tracker
+              </h1>
+              {getStatusBadge()}
+            </div>
+            <p className="text-sm text-slate-400 mt-1">
+              6축 자이로·가속도(IMU) 센서 기반 자율형 복약 및 순응도 관리 관제 시스템
+            </p>
+          </div>
 
-      {/* 수직 탭 — 화면 맨 왼쪽 고정 */}
-      <div className="flex flex-col pt-16 pl-1 bg-indigo-950">
-        {(['today', 'history'] as LogTab[]).map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveLogTab(tab)}
-            style={{ ...tabBase, ...(activeLogTab === tab ? tabActive : {}) }}
+            onClick={() => loadData()}
+            className="self-start md:self-auto px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
           >
-            <span style={tabLabel}>{tab === 'today' ? 'TODAY' : 'HISTORY'}</span>
+            새로고침
           </button>
-        ))}
-      </div>
+        </header>
 
-      {/* 메인 컨텐츠 */}
-      <div className="flex-1 p-4" style={{ borderLeft: '1px solid #dee2e6' }}>
-        <div className="flex items-center gap-3 mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">Hands-Free Gym Tracker</h1>
-          <Badge color={badge.color} variant="light">{badge.label}</Badge>
-          <Button
-            size="xs"
-            className="w-30!"
-            variant="light"
-            color="violet"
-            disabled={isDemoRunning}
-            onClick={() => {
-              setInProgressLogId(null);
-              setInProgressSets([]);
-              setLogActionModal({ open: false, nextEquipment: null });
-              setDemoLogs([]);
-              demoStartedAt.current = Date.now();
-              setIsDemoRunning(true);
-              startDemoScenario(USER_ID).catch(() => {
-                setIsDemoRunning(false);
-                demoStartedAt.current = null;
-              });
-            }}
-          >
-            데모 시작
-          </Button>
+        {/* 복약 순응도 대시보드 */}
+        <AdherenceDashboard stats={stats} />
+
+        {/* 약통 현황 & 복용 이력 타임라인 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 좌측: 등록 약통 현황 */}
+          <div>
+            <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center justify-between">
+              <span>약통별 복용 현황</span>
+              <span className="text-xs text-slate-400 font-mono font-normal">
+                {bottles.length}개 약통 등록됨
+              </span>
+            </h2>
+
+            <div className="space-y-4">
+              {bottles.map((bottle) => (
+                <BottleCard
+                  key={bottle.bottle_id}
+                  bottle={bottle}
+                  isTakenToday={!!takenBottles[bottle.bottle_id]}
+                  currentState={bottleStates[bottle.bottle_id] || 'idle'}
+                  lastTakenTime={lastTakenTimes[bottle.bottle_id]}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* 우측: 실시간 복용 이력 타임라인 */}
+          <div>
+            <MedicationLogList logs={logs} bottles={bottles} />
+          </div>
         </div>
-
-        {/* 탭1 — 오늘 운동 */}
-        {activeLogTab === 'today' && (
-          <div className="flex flex-col gap-4 md:flex-row">
-            <div className="w-full md:w-[33%]">
-              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-                <Text fw={600} size="sm" c="dimmed">기구 &amp; 운동</Text>
-              </div>
-              <EquipmentStatus equipment={equipment} tumblerState={tumblerState} inProgress={inProgressLogId !== null} />
-              {inProgressLogId && (
-                <WorkoutInProgress
-                  sets={inProgressSets}
-                  onComplete={handleComplete}
-                  onUpdateSets={handleUpdateSets}
-                />
-              )}
-              {!inProgressLogId && (
-                <SmartDefault
-                  data={smartDefault}
-                  isLoading={isLoading}
-                  onConfirm={handleSmartDefaultConfirm}
-                />
-              )}
-            </div>
-
-            <div className="w-full md:w-[33%]">
-              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-                <Text fw={600} size="sm" c="dimmed">오늘의 기록</Text>
-              </div>
-              <Dashboard logs={logs} />
-            </div>
-
-            <div className="w-full md:w-[33%]">
-              <div style={{ height: '48px' }} />
-              <DemoTimeline entries={demoLogs} />
-            </div>
-          </div>
-        )}
-
-        {/* 탭2 — 캘린더 기록 (오늘의 기록 컬럼과 동일한 1/3 너비) */}
-        {activeLogTab === 'history' && (
-          <div className="w-full md:w-[33%]">
-            <WorkoutHistoryCalendar userId={USER_ID} />
-          </div>
-        )}
       </div>
-
-      <Modal
-        opened={logActionModal.open}
-        onClose={() => { }}
-        withCloseButton={false}
-        title="진행 중인 운동 기록"
-        centered
-      >
-        <Text size="sm" mb="lg">
-          기구가 변경되었습니다. 진행 중인 운동 기록을 어떻게 처리할까요?
-        </Text>
-        <Group justify="flex-end">
-          <Button variant="subtle" color="red" onClick={handleDeleteAndContinue}>
-            삭제하고 계속
-          </Button>
-          <Button onClick={handleSaveAndContinue}>
-            저장하고 계속
-          </Button>
-        </Group>
-      </Modal>
-
-      <EquipmentRegisterModal
-        open={unknownFingerprint !== null}
-        fingerprintId={unknownFingerprint?.rawFingerprintId ?? ''}
-        onRegister={handleRegister}
-        onDismiss={() => setUnknownFingerprint(null)}
-      />
-
     </div>
   );
 }

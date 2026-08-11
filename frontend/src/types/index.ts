@@ -1,14 +1,10 @@
 // ─── WebSocket 이벤트 타입 ───────────────────────────────────────────────────
 
 export type SensorEventType =
-  | 'equipment_detected'
+  | 'medication_taken'
+  | 'bottle_state_changed'
   | 'tumbler_state_changed'
-  | 'set_logged'
-  | 'equipment_unknown'
-  | 'demo_workout_started'
-  | 'demo_workout_completed'
-  | 'demo_scenario_completed'
-  | 'demo_logs_cleared';
+  | 'equipment_detected';
 
 export type WebSocketMessage<T = unknown> = {
   type: SensorEventType;
@@ -16,74 +12,42 @@ export type WebSocketMessage<T = unknown> = {
   timestamp: string; // ISO 8601
 };
 
-// ─── 기구 식별 ────────────────────────────────────────────────────────────────
+// ─── 약통 및 복용 이력 타입 ─────────────────────────────────────────────────────
 
-export type EquipmentDetectedPayload = {
-  equipmentId: string;
-  equipmentName: string;
-  confidence: number; // 0.0 ~ 1.0
-  detectedAt: string; // ISO 8601
+export type Bottle = {
+  bottle_id: string;
+  name: string;
+  target_time: string;
+  created_at?: string;
 };
 
-export type UnknownEquipmentPayload = {
-  rawFingerprintId: string;
-  detectedAt: string;
+export type MedicationLog = {
+  id: string;
+  bottle_id: string;
+  event_type: string;
+  taken_at: string;
+  status: string;
 };
 
-// ─── 텀블러 상태 ──────────────────────────────────────────────────────────────
-
-// 텀블러 거치 후 운동 중/휴식은 센서로 구분 불가 → 이동 중 / 거치됨 2단계만 판별
-export type TumblerState = 'moving' | 'settled';
-
-export type TumblerStatePayload = {
-  state: TumblerState;
-  transitionedAt: string; // ISO 8601
+export type MedicationTakenPayload = {
+  bottle_id: string;
+  taken_at: string;
+  status: string;
+  state_deg?: number;
 };
 
-// ─── 운동 로그 ────────────────────────────────────────────────────────────────
+export type BottleState = 'idle' | 'moving' | 'pouring' | 'settled';
 
-export type SetLogPayload = {
-  equipmentId: string;
-  equipmentName: string;
-  setNumber: number;
-  weight: number;
-  reps: number;
-  loggedAt: string;
+export type BottleStatePayload = {
+  state: BottleState;
+  transitioned_at?: string;
 };
 
-// ─── 대시보드 ─────────────────────────────────────────────────────────────────
-
-export type DashboardSet = {
-  setNumber: number;
-  weight:    number;
-  reps:      number;
-};
-
-export type DashboardLog = {
-  id:            string;
-  equipmentName: string;
-  sets:          DashboardSet[];
-  startedAt:     string;       // ISO 8601
-  endedAt:       string | null;
-};
-
-// ─── 스마트 디폴트 ────────────────────────────────────────────────────────────
-
-export type SmartDefaultData = {
-  equipmentId: string;
-  suggestedSetsDetail: { weight: number; reps: number }[]; // 이전 운동 세트별 무게·횟수. 신규 기구면 빈 배열
-  basedOnDate: string | null; // 과거 기록 없으면 null
-};
-
-// ─── 데모 시나리오 이벤트 ─────────────────────────────────────────────────────
-
-export type DemoWorkoutStartedPayload = {
-  logId: string;
-  sets:  { weight: number; reps: number }[];
-};
-
-export type DemoWorkoutCompletedPayload = {
-  logId: string;
+export type AdherenceStats = {
+  total_logs: number;
+  adherence_rate: number;
+  streak_days: number;
+  bottle_stats: Record<string, number>;
 };
 
 // ─── WebSocket 훅 반환 타입 ───────────────────────────────────────────────────
@@ -91,14 +55,10 @@ export type DemoWorkoutCompletedPayload = {
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 export type WebSocketEvent =
-  | { type: 'equipment_detected';      payload: EquipmentDetectedPayload }
-  | { type: 'tumbler_state_changed';   payload: TumblerStatePayload }
-  | { type: 'set_logged';              payload: SetLogPayload }
-  | { type: 'equipment_unknown';       payload: UnknownEquipmentPayload }
-  | { type: 'demo_workout_started';    payload: DemoWorkoutStartedPayload }
-  | { type: 'demo_workout_completed';  payload: DemoWorkoutCompletedPayload }
-  | { type: 'demo_scenario_completed'; payload: Record<string, never> }
-  | { type: 'demo_logs_cleared';       payload: Record<string, never> };
+  | { type: 'medication_taken'; payload: MedicationTakenPayload }
+  | { type: 'bottle_state_changed'; payload: BottleStatePayload }
+  | { type: 'tumbler_state_changed'; payload: { state: string } }
+  | { type: 'equipment_detected'; payload: { equipmentName: string } };
 
 export type UseWebSocketReturn = {
   status: WebSocketStatus;
