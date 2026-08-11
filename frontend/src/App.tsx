@@ -157,41 +157,40 @@ function App() {
           </Button>
         </div>
 
-        {/* 탭1 — TODAY (기존 Gym Tracker 3컬럼 레이아웃에 새로 생성한 약통 컴포넌트 탑재) */}
+        {/* 탭1 — TODAY (상단 3개 통계 카드 가로 배치 + 하단 2열 약통 현황 & 복용 타임라인) */}
         {activeLogTab === 'today' && (
-          <div className="flex flex-col gap-4 md:flex-row">
-            {/* 1열: 등록 약통 현황 */}
-            <div className="w-full md:w-[33%]">
-              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-                <Text fw={600} size="sm" c="dimmed">약통별 복용 현황 ({bottles.length})</Text>
-              </div>
-              <div className="space-y-4">
-                {bottles.map((bottle) => (
-                  <BottleCard
-                    key={bottle.bottle_id}
-                    bottle={bottle}
-                    isTakenToday={!!takenBottles[bottle.bottle_id]}
-                    currentState={bottleStates[bottle.bottle_id] || 'idle'}
-                    lastTakenTime={lastTakenTimes[bottle.bottle_id]}
-                  />
-                ))}
-              </div>
-            </div>
+          <div>
+            {/* 상단 1열 가로 배치: 복약 순응도 대시보드 */}
+            <AdherenceDashboard stats={stats} />
 
-            {/* 2열: 복용 순응도 대시보드 요약 */}
-            <div className="w-full md:w-[33%]">
-              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-                <Text fw={600} size="sm" c="dimmed">순응도 통계</Text>
-              </div>
-              <AdherenceDashboard stats={stats} />
-            </div>
+            {/* 하단 2열 배치: 좌측 약통별 복용 현황, 우측 실시간 복용 이력 타임라인 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 좌측: 등록 약통 현황 (Card in Card) */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs">
+                <h2 className="text-sm font-bold text-gray-800 mb-3 flex items-center justify-between">
+                  <span>약통별 복용 현황</span>
+                  <span className="text-xs text-gray-500 font-mono font-normal">
+                    {bottles.length}개 약통 등록됨
+                  </span>
+                </h2>
 
-            {/* 3열: 실시간 복용 이력 타임라인 */}
-            <div className="w-full md:w-[33%]">
-              <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>
-                <Text fw={600} size="sm" c="dimmed">복용 타임라인</Text>
+                <div className="space-y-3">
+                  {bottles.map((bottle) => (
+                    <BottleCard
+                      key={bottle.bottle_id}
+                      bottle={bottle}
+                      isTakenToday={!!takenBottles[bottle.bottle_id]}
+                      currentState={bottleStates[bottle.bottle_id] || 'idle'}
+                      lastTakenTime={lastTakenTimes[bottle.bottle_id]}
+                    />
+                  ))}
+                </div>
               </div>
-              <MedicationLogList logs={logs} bottles={bottles} />
+
+              {/* 우측: 실시간 복용 이력 타임라인 */}
+              <div>
+                <MedicationLogList logs={logs} bottles={bottles} />
+              </div>
             </div>
           </div>
         )}

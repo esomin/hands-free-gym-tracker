@@ -11,7 +11,7 @@ export const AdherenceDashboard: React.FC<AdherenceDashboardProps> = ({ stats })
   const total = stats?.total_logs ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {/* 1. 복약 순응도 */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs">
         <div className="text-xs font-semibold text-gray-500 mb-1">이번 주 복약 순응도</div>
@@ -30,7 +30,7 @@ export const AdherenceDashboard: React.FC<AdherenceDashboardProps> = ({ stats })
         <div className="text-2xl font-extrabold text-amber-500 font-mono">
           {streak} <span className="text-xs font-sans font-normal text-gray-400">일 연속</span>
         </div>
-        <div className="text-[11px] text-gray-400 mt-1">정해진 시각 복용 수칙을 준수하고 있습니다.</div>
+        <div className="text-[11px] text-gray-400 mt-1">매일 정해진 시각 복용 수칙을 준수하고 있습니다.</div>
       </div>
 
       {/* 3. 누적 복용 완료 횟수 */}

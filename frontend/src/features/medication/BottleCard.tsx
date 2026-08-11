@@ -44,17 +44,17 @@ export const BottleCard: React.FC<BottleCardProps> = ({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs hover:border-indigo-300 transition-all duration-200">
+    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3.5 hover:border-teal-200 transition-all duration-200">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+        <span className="text-xs font-mono text-gray-500 bg-gray-200/70 px-2 py-0.5 rounded">
           {bottle.bottle_id}
         </span>
         {statusBadge}
       </div>
 
-      <h3 className="text-base font-bold text-gray-900 mb-1">{bottle.name}</h3>
+      <h3 className="text-sm font-bold text-gray-900 mb-1">{bottle.name}</h3>
 
-      <div className="flex items-center justify-between text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between text-xs text-gray-500 mt-2.5 pt-2.5 border-t border-gray-200/70">
         <div>
           <span className="text-[11px] text-gray-400 block">목표 복용 시각</span>
           <span className="font-semibold text-gray-700">{bottle.target_time}</span>
