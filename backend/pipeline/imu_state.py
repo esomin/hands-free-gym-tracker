@@ -7,15 +7,15 @@ from datetime import datetime, timezone
 from typing import Literal
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
-# 슬라이딩 윈도우 크기 (샘플 수, 50 Hz 기준 0.4 s)
-WINDOW_SIZE = 20
+# 슬라이딩 윈도우 크기 (샘플 수, INTAKE_SUSTAINED_SAMPLES 50 이상 수용 가능하도록 100으로 설정)
+WINDOW_SIZE = 100
 
 # 복용 판별 임계값 (조사 자료 기반)
 # AccZ < 0.0 m/s^2 이면서 sqrt(AccX^2 + AccY^2) > 7.0 m/s^2 지속 조건
 POURING_ACC_Z_MAX = 0.0
 POURING_ACC_XY_MIN = 7.0
-# 최소 1초 (50Hz 기준 50 샘플) 지속 시 복용 감지
-INTAKE_SUSTAINED_SAMPLES = 50
+# 최소 0.6초 (50Hz 기준 30 샘플) 지속 시 복용 감지 (시뮬레이터 5초 시나리오 및 실제 반응속도 호환)
+INTAKE_SUSTAINED_SAMPLES = 30
 
 # |accel − 1.0 g| 이동 평균 임계값 (g)
 MOVE_ACCEL_THRESHOLD = 0.04
