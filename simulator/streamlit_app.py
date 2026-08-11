@@ -39,15 +39,20 @@ if "trigger_impulse" not in st.session_state:
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
 
-if "stop_event" not in st.session_state:
-    st.session_state.stop_event = None
+if "date_offset_days" not in st.session_state:
+    st.session_state.date_offset_days = 0
+
+if "custom_time" not in st.session_state:
+    st.session_state.custom_time = "현재 시각"
 
 # ── 매 리런마다 _params 동기화 ──────────────────────────────────────────────────
-_params["bottle_state"]    = st.session_state.bottle_state
-_params["selected_bottle"] = st.session_state.selected_bottle
-_params["tilt_angle"]      = st.session_state.tilt_angle
-_params["noise_level"]     = st.session_state.noise_level
-_params["trigger_impulse"] = st.session_state.trigger_impulse
+_params["bottle_state"]       = st.session_state.bottle_state
+_params["selected_bottle"]    = st.session_state.selected_bottle
+_params["tilt_angle"]         = st.session_state.tilt_angle
+_params["noise_level"]        = st.session_state.noise_level
+_params["trigger_impulse"]    = st.session_state.trigger_impulse
+_params["date_offset_days"]   = st.session_state.date_offset_days
+_params["custom_time"]        = st.session_state.custom_time
 
 # ── 스트림 종료 감지 ──────────────────────────────────────────────────────────
 if st.session_state.streaming and st.session_state.stop_event is not None:
@@ -82,9 +87,30 @@ with col_control:
         help="시뮬레이션할 약통(Device ID)을 선택하세요.",
     )
 
-    # STEP 2: 노이즈 레벨 슬라이더
+    # STEP 2: 날짜/시간 오프셋 설정 (과거 복용 데이터 시뮬레이션)
+    st.write("**STEP 2: 테스트 날짜/시간 설정**")
+    d_col1, d_col2 = st.columns(2)
+    with d_col1:
+        st.session_state.date_offset_days = st.number_input(
+            label="날짜 오프셋 (일)",
+            min_value=-30,
+            max_value=30,
+            value=st.session_state.date_offset_days,
+            step=1,
+            help="0 = 오늘, -1 = 어제, -2 = 2일 전",
+        )
+    with d_col2:
+        t_opts = ["현재 시각", "08:00 (아침)", "12:30 (점심)", "22:30 (취침전)"]
+        st.session_state.custom_time = st.selectbox(
+            label="복용 시각",
+            options=t_opts,
+            index=t_opts.index(st.session_state.custom_time) if st.session_state.custom_time in t_opts else 0,
+            help="전송할 복용 타임스탬프 시각을 지정합니다.",
+        )
+
+    # STEP 3: 노이즈 레벨 슬라이더
     st.session_state.noise_level = st.slider(
-        label="STEP 2: 노이즈 레벨 (손떨림 / 임펄스 오차)",
+        label="STEP 3: 노이즈 레벨 (손떨림 / 임펄스 오차)",
         min_value=0.0,
         max_value=1.0,
         value=st.session_state.noise_level,
@@ -95,14 +121,15 @@ with col_control:
 
     st.write("")
 
-    # STEP 3: 자동 복용 시나리오 실행 버튼
-    st.write("**STEP 3: 원클릭 자동 복용 테스트**")
+    # STEP 4: 자동 복용 시나리오 실행 버튼
+    st.write("**STEP 4: 원클릭 자동 복용 테스트**")
     if st.button("5초 자동 복용 시나리오 실행", use_container_width=True, type="primary"):
         # 스트림 자동 시작
         if not st.session_state.streaming:
             stop_event = threading.Event()
 
             def get_reading() -> dict:
+                from datetime import datetime, timezone, timedelta
                 impulse = _params.get("trigger_impulse", False)
                 _params["trigger_impulse"] = False
                 imu = generate_imu(
@@ -111,8 +138,20 @@ with col_control:
                     _params["noise_level"],
                     impulse,
                 )
+
+                # 날짜 및 시간 오프셋 적용 타임스탬프 생성
+                base_dt = datetime.now(timezone.utc) + timedelta(days=_params.get("date_offset_days", 0))
+                c_time = _params.get("custom_time", "현재 시각")
+                if c_time != "현재 시각":
+                    try:
+                        hh, mm = map(int, c_time.split()[0].split(":"))
+                        base_dt = base_dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                    except Exception:
+                        pass
+
                 return {
                     "bottle_id": _params["selected_bottle"],
+                    "timestamp": base_dt.isoformat(),
                     **imu,
                 }
 

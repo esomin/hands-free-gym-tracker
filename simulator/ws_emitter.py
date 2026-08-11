@@ -22,7 +22,8 @@ async def _stream(
         async with websockets.connect(url) as ws:
             while not stop_event.is_set():
                 reading = get_reading()
-                reading["timestamp"] = datetime.now(timezone.utc).isoformat()
+                if "timestamp" not in reading or not reading["timestamp"]:
+                    reading["timestamp"] = datetime.now(timezone.utc).isoformat()
                 await ws.send(json.dumps(reading))
                 await asyncio.sleep(SEND_INTERVAL)
     except Exception as e:

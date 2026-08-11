@@ -108,7 +108,14 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             raw_acc_z = float(data.get('acc_z', 9.81))
             bottle_id = str(data.get('bottle_id', 'BOTTLE_01'))
             state_deg = int(data.get('state_deg', 0))
-            ts = datetime.now(timezone.utc)
+            raw_ts = data.get('timestamp')
+            if raw_ts:
+                try:
+                    ts = datetime.fromisoformat(raw_ts.replace('Z', '+00:00'))
+                except Exception:
+                    ts = datetime.now(timezone.utc)
+            else:
+                ts = datetime.now(timezone.utc)
 
             # ── 1. 노이즈 필터 ────────────────────────────────────────────────
             f_acc_x, f_acc_y, f_acc_z, f_accel, f_gyro = filter_sensor_3axis(
