@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Badge, Button, Text } from '@mantine/core';
+import { Badge } from '@mantine/core';
 import { useWebSocket } from './hooks/useWebSocket';
 import { fetchBottles, fetchMedicationLogs, fetchAdherenceStats } from './api/client';
 import type { Bottle, MedicationLog, AdherenceStats, BottleState } from './types';
@@ -46,10 +46,18 @@ const STATUS_BADGE = {
   disconnected: { color: 'gray', label: '연결 대기' },
 };
 
+// URL Hash 기반의 경량 라우터 타입 (#today, #history)
+type RoutePage = 'today' | 'history';
+
 function App() {
   const { status, lastEvent } = useWebSocket(WS_URL);
 
-  const [activeLogTab, setActiveLogTab] = useState<LogTab>('today');
+  // URL Hash (#today, #history) 기반 라우팅 상태
+  const [currentPage, setCurrentPage] = useState<RoutePage>(() => {
+    const hash = window.location.hash.replace('#', '');
+    return hash === 'history' ? 'history' : 'today';
+  });
+
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [logs, setLogs] = useState<MedicationLog[]>([]);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
@@ -58,6 +66,27 @@ function App() {
   const [takenBottles, setTakenBottles] = useState<Record<string, boolean>>({});
   const [bottleStates, setBottleStates] = useState<Record<string, BottleState>>({});
   const [lastTakenTimes, setLastTakenTimes] = useState<Record<string, string>>({});
+
+  // URL 해시 변화 감지 (브라우저 뒤로가기 / 앞으로가기 및 URL 링크 복사 지원)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'history') {
+        setCurrentPage('history');
+      } else {
+        setCurrentPage('today');
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // 페이지 이동 함수 (URL Hash 변경 및 상태 갱신)
+  const navigateTo = (page: RoutePage) => {
+    window.location.hash = page;
+    setCurrentPage(page);
+  };
 
   // 데이터 로드
   const loadData = useCallback(async () => {
@@ -117,7 +146,7 @@ function App() {
         status: 'SUCCESS',
       };
       setLogs((prev) => [newLog, ...prev]);
-      fetchAdherenceStats().then(setStats).catch(() => {});
+      fetchAdherenceStats().then(setStats).catch(() => { });
     }
 
     if (lastEvent.type === 'bottle_state_changed') {
@@ -130,16 +159,20 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* 수직 탭 — 화면 맨 왼쪽 고정 (Gym Tracker 오리지널 구조) */}
+      {/* 수직 네비게이션 탭 (URL 링크 라우팅 지원) */}
       <div className="flex flex-col pt-16 pl-1 bg-indigo-950">
-        {(['today', 'history'] as LogTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveLogTab(tab)}
-            style={{ ...tabBase, ...(activeLogTab === tab ? tabActive : {}) }}
+        {(['today', 'history'] as RoutePage[]).map((page) => (
+          <a
+            key={page}
+            href={`#${page}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo(page);
+            }}
+            style={{ ...tabBase, ...(currentPage === page ? tabActive : {}) }}
           >
-            <span style={tabLabel}>{tab === 'today' ? 'TODAY' : 'HISTORY'}</span>
-          </button>
+            <span style={tabLabel}>{page === 'today' ? 'TODAY' : 'HISTORY'}</span>
+          </a>
         ))}
       </div>
 
@@ -150,8 +183,8 @@ function App() {
           <Badge color={badge.color} variant="light">{badge.label}</Badge>
         </div>
 
-        {/* 탭1 — TODAY (상단 3개 통계 카드 가로 배치 + 하단 2열 약통 현황 & 복용 타임라인) */}
-        {activeLogTab === 'today' && (
+        {/* 라우트 1 — TODAY 페이지 (`/#today` 또는 기본 경로) */}
+        {currentPage === 'today' && (
           <div>
             {/* 상단 1열 가로 배치: 복약 순응도 대시보드 */}
             <AdherenceDashboard
@@ -191,8 +224,8 @@ function App() {
           </div>
         )}
 
-        {/* 탭2 — HISTORY */}
-        {activeLogTab === 'history' && (
+        {/* 라우트 2 — HISTORY 페이지 (`/#history`) */}
+        {currentPage === 'history' && (
           <MedicationHistoryTab logs={logs} bottles={bottles} stats={stats} />
         )}
       </div>
