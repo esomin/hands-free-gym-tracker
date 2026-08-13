@@ -7,24 +7,33 @@ from datetime import datetime, timezone
 from typing import Literal
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
-# 슬라이딩 윈도우 크기 (샘플 수, INTAKE_SUSTAINED_SAMPLES 50 이상 수용 가능하도록 100으로 설정)
+# ── 센서 스케일 변환 참고 (Raw LSB -> 물리 단위) ────────────────────────────────
+# ±2g 설정 시: 1g ≈ 16384 LSB, 1 m/s^2 ≈ 1670 LSB
+# ±250dps 설정 시: 1 rad/s ≈ 7500 LSB
+
+# 슬라이딩 윈도우 크기 (50Hz 기준 2.0초 수용)
 WINDOW_SIZE = 100
 
-# 복용 판별 임계값 (조사 자료 기반)
-# AccZ < 0.0 m/s^2 이면서 sqrt(AccX^2 + AccY^2) > 7.0 m/s^2 지속 조건
-POURING_ACC_Z_MAX = 0.0
-POURING_ACC_XY_MIN = 7.0
-# 최소 0.6초 (50Hz 기준 30 샘플) 지속 시 복용 감지 (시뮬레이터 5초 시나리오 및 실제 반응속도 호환)
-INTAKE_SUSTAINED_SAMPLES = 20
+# 약통 털어넣기(Shaking/Pouring) 복용 판별 임계값 (실측 logs.txt 분석 반영)
+# 1. 강한 손목 스냅(Violent Shaking) 시 평면 가속도 피크 15.0 m/s^2 (약 1.5g~2.0g) 이상 급증
+POURING_ACC_XY_MIN = 15.0
 
-# |accel − 1.0 g| 이동 평균 임계값 (g)
-MOVE_ACCEL_THRESHOLD = 0.04
-MOVE_GYRO_VAR = 0.40
+# 2. 동적 타격 동작 중 Z축 가속도 동요 수용 범위 (90도 부근 요동 수용)
+POURING_ACC_Z_MAX = 3.0
+
+# 3. 짧고 강한 스냅 타격 피크 지속 시간 (50Hz 기준 10 샘플 = 0.2초)
+INTAKE_SUSTAINED_SAMPLES = 10
+
+# 미세 진동 노이즈 오탐 방지를 위한 이동(Moving) 가속도 임계값 (g 단위)
+MOVE_ACCEL_THRESHOLD = 0.15
+
+# 미세 일상 회전 억제를 위한 자이로 분산 임계값 ((rad/s)^2 단위)
+MOVE_GYRO_VAR = 0.60
 
 # 약통 4단계 상태 정의
 # idle: 보관 중 (0도)
 # moving: 집어 들거나 이동 중 (45도 등)
-# pouring: 손바닥에 알약 털어넣기 중 (110도대 기울임)
+# pouring: 손바닥에 알약 털어넣기/Shaking 중 (기울임 & 강한 스냅)
 # settled: 다시 제자리에 세워 거치 완료 (0도)
 BottleState = Literal['idle', 'moving', 'pouring', 'settled']
 
@@ -40,14 +49,30 @@ class SensorReading:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+def raw_lsb_to_physical(
+    acc_x_lsb: float,
+    acc_y_lsb: float,
+    acc_z_lsb: float,
+    acc_lsb_per_g: float = 16384.0,
+) -> tuple[float, float, float]:
+    """
+    아두이노 센서 Raw LSB 데이터를 물리 단위(m/s^2)로 변환한다.
+    (기본 스케일: ±2g 기준 1g = 16384 LSB, 1g = 9.81 m/s^2)
+    """
+    ax_g = acc_x_lsb / acc_lsb_per_g
+    ay_g = acc_y_lsb / acc_lsb_per_g
+    az_g = acc_z_lsb / acc_lsb_per_g
+    return ax_g * 9.81, ay_g * 9.81, az_g * 9.81
+
+
 def detect_medication_intake(window: deque[SensorReading]) -> bool:
     """
-    윈도우 내 샘플들이 영양제 복용 모션(110도 알약 털어넣기) 조건에 부합하는지 판별한다.
+    윈도우 내 샘플들이 영양제 복용 모션(손목 스냅 털어넣기 Shaking) 조건에 부합하는지 판별한다.
 
     조건:
-    1. AccZ < 0.0 m/s^2 (대각선 ~ 110도 기울임)
-    2. sqrt(AccX^2 + AccY^2) > 6.5 m/s^2
-    3. 최근 INTAKE_SUSTAINED_SAMPLES (25샘플) 이상 유지
+    1. AccZ < POURING_ACC_Z_MAX (3.0 m/s^2 이하 - 90도~110도 요동 수용)
+    2. sqrt(AccX^2 + AccY^2) > POURING_ACC_XY_MIN (15.0 m/s^2 이상 - 강한 스냅 피크)
+    3. 최근 INTAKE_SUSTAINED_SAMPLES (10샘플 = 0.2초) 이상 유지
     """
     if len(window) < INTAKE_SUSTAINED_SAMPLES:
         return False
@@ -56,7 +81,7 @@ def detect_medication_intake(window: deque[SensorReading]) -> bool:
 
     for r in recent_samples:
         xy_mag = math.sqrt(r.acc_x**2 + r.acc_y**2)
-        if not (r.acc_z < POURING_ACC_Z_MAX and xy_mag > 6.5):
+        if not (r.acc_z < POURING_ACC_Z_MAX and xy_mag > POURING_ACC_XY_MIN):
             return False
 
     return True
