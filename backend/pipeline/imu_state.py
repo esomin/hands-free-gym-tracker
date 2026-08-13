@@ -72,19 +72,21 @@ def detect_medication_intake(window: deque[SensorReading]) -> bool:
     조건:
     1. AccZ < POURING_ACC_Z_MAX (3.0 m/s^2 이하 - 90도~110도 요동 수용)
     2. sqrt(AccX^2 + AccY^2) > POURING_ACC_XY_MIN (15.0 m/s^2 이상 - 강한 스냅 피크)
-    3. 최근 INTAKE_SUSTAINED_SAMPLES (10샘플 = 0.2초) 이상 유지
+    3. 최근 INTAKE_SUSTAINED_SAMPLES (10샘플 = 0.2초) 중 80% 이상(8개 이상) 조건 충족 시 인정 (스파이크 노이즈 강건성)
     """
     if len(window) < INTAKE_SUSTAINED_SAMPLES:
         return False
 
     recent_samples = list(window)[-INTAKE_SUSTAINED_SAMPLES:]
 
-    for r in recent_samples:
-        xy_mag = math.sqrt(r.acc_x**2 + r.acc_y**2)
-        if not (r.acc_z < POURING_ACC_Z_MAX and xy_mag > POURING_ACC_XY_MIN):
-            return False
+    # 10개 샘플 중 조건 충족 샘플 수 카운트
+    valid_count = sum(
+        1 for r in recent_samples
+        if r.acc_z < POURING_ACC_Z_MAX and math.sqrt(r.acc_x**2 + r.acc_y**2) > POURING_ACC_XY_MIN
+    )
 
-    return True
+    # 80% 이상 (10개 중 8개 이상) 충족 시 순간 스파이크 노이즈가 튀어도 복용 성공으로 판정
+    return (valid_count / INTAKE_SUSTAINED_SAMPLES) >= 0.80
 
 
 def detect_bottle_state(sensor_window: deque[SensorReading]) -> BottleState:

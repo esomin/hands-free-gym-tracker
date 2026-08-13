@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-# EMA 평활화 계수
-ALPHA = 0.65
+# [실측 데이터 기반 튜닝]
+# - 0.65 대비 잔진동(Ringing) 억제력을 높이고,
+# - 41,000 LSB에 달하는 강한 털기 피크(Peak)는 지연 없이 70% 이상 추종하도록 설정
+ALPHA = 0.45
 
 
 def _apply_ema(state: dict[str, float], key: str, value: float) -> float:

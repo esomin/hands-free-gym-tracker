@@ -1,6 +1,6 @@
-# IMU 센서 임계값 및 약통 제스처 상태 정의서 (Med Tracker)
+# IMU 센서 임계값 및 노이즈 필터링 정의서 (Med Tracker)
 
-`backend/pipeline/imu_state.py`의 약통(Pill Bottle) 제스처 상태 판별 알고리즘 및 실측 로그(`firmware/logs.txt`, `firmware/logsreport.md`) 기반 임계값(`POURING_ACC_XY_MIN`, `POURING_ACC_Z_MAX`, `INTAKE_SUSTAINED_SAMPLES`, `MOVE_ACCEL_THRESHOLD`, `MOVE_GYRO_VAR`) 설정 근거를 기록합니다.
+`backend/pipeline/imu_state.py` 및 `backend/pipeline/noise_filter.py`의 약통(Pill Bottle) 제스처 상태 판별 알고리즘 및 실측 로그 주파수/SNR/반동 진동(Ringing) 분석 기반 최적 EMA/LPF 필터 계수(`ALPHA = 0.45`) 설정 근거를 기록합니다.
 
 ---
 
@@ -13,48 +13,38 @@
 
 ---
 
-## 2. 약통 4단계 상태 정의 (BottleState)
+## 2. 실측 데이터 기반 LPF 계수 선정 (`ALPHA = 0.45`)
 
-실제 사용자의 약 복용 동작은 단순 얌전한 기울임(Static Tilt)이 아니라 **손목 스냅을 이용한 강한 타격/요동(Violent Shaking)** 특성을 가집니다.
+### A. 신호 대 잡음비 (SNR) 및 2샘플 추종 성능
+* **정지/뚜껑 회전 노이즈 ($-284 \sim +1,037\,\text{LSB}$)**: 평시 미세 노이즈를 45% 수준으로 억제하여 `moving` 오탐 방지.
+* **약 털기(Shaking) 압도적 피크 ($\text{Acc}_Y = -41,299\,\text{LSB}$)**: 평시 노이즈 대비 40배 이상의 SNR을 가지므로 $\alpha=0.45$ 적용 시 **단 2개 샘플($0.2$초) 만에 피크의 70% 이상($-28,800\,\text{LSB} \approx 17.5\,\text{m/s}^2$)을 지연 없이 즉시 추종**하여 복용 조건($15.0\,\text{m/s}^2$)을 압도적으로 만족함.
 
-| 상태 (`BottleState`) | 설명 | 6축 센서 물리 특성 및 실측 파형 |
-| :--- | :--- | :--- |
-| **`idle`** | 보관 중 | 평면에 바로 세워 거치된 정지 상태 (기울기 0도, 가속도 중력 $1.0\,\text{g}$ 수렴) |
-| **`moving`** | 집어 들거나 이동 중 | 약통을 파지하여 들거나 수직 양상 이동 중 (변동폭 약 $0.6\,\text{g} \approx 10,000\,\text{LSB}$) |
-| **`pouring`** | 알약 털어넣기 (Shaking) | 손바닥에 알약을 털어넣기 위해 90~110도 기울이고 강하게 털어내는 동적 상태 |
-| **`settled`** | 거치 완료 | 복용 후 약통을 바닥에 안착시켜 정지 영점(Offset) 수렴 상태 |
+### B. 털기 직후 반동 진동 (Ringing) 및 잔상 제거
+* $\alpha = 0.65$ 사용 시 털기 후 손에 남는 반동 잔진동이 필터를 그대로 통과하여 "약통을 세웠는데도 계속 moving으로 착각하는 잔상 현상" 발생.
+* $\alpha = 0.45$ 적용 시 원시 데이터 신뢰도 45%를 적용하여 강한 털기 피크는 그대로 잡아내면서도, **털기 직후 잔진동을 부드럽게 흡수하여 거치 상태(`settled`)로의 복용 완료 판정이 안정적으로 진입**.
 
 ---
 
-## 3. 실측 로그 기반 임계값 튜닝 및 설정 근거
+## 3. 2단계 노이즈 방어 체계 (Noise Immunity Strategy)
 
-### `MOVE_ACCEL_THRESHOLD = 0.15 g` (기존 0.04g → 0.15g 상향)
-* **근거**: 실측 데이터 1구간(들기) 분석 결과, 약통을 들어 올려 수직 이동시킬 때 약 $0.6\,\text{g}$ ($\approx 10,000\,\text{LSB}$) 수준의 가속도 변동이 명확히 수집됩니다.
-* 책상을 치거나 장비를 터치할 때 발생하는 미세 진동 노이즈($< 0.1\,\text{g}$)로 인한 `moving` 오탐을 완전 방지합니다.
+### ① 1차 방어: LPF/EMA 반동 억제 최적 계수 (`ALPHA = 0.45`)
+* **[backend/pipeline/noise_filter.py](file:///Users/somui/workplace/handsfree-gym-tracker/backend/pipeline/noise_filter.py)**
+* 2샘플 빠른 피크 추종과 털기 직후 반동 잔진동 흡수 밸런스 완벽 확보.
 
-### `MOVE_GYRO_VAR = 0.60 (rad/s)²` (기존 0.40 → 0.60 상향)
-* **근거**: 일상적인 약통 보관 및 파지 시 발생하는 미세 회전 진동을 오탐하지 않도록 안정성을 확보합니다.
-
-### `POURING_ACC_XY_MIN = 15.0 m/s²` (기존 7.0m/s² → 15.0m/s² 상향)
-* **근거**: 3구간(털기) 실측 데이터 분석 시 손목 스냅 타격에 의해 가속도가 중력($9.81\,\text{m/s}^2$)을 아득히 초과하여 약 $2.0\,\text{g}$ 이상 ($\text{Acc}_Y \approx -41,299\,\text{LSB}$) 급증하는 충격 피크가 집중 수집됩니다.
-* $15.0\,\text{m/s}^2$ 이상으로 설정하여 일반적인 보도/이동 가속도와 확실하게 구별합니다.
-
-### `POURING_ACC_Z_MAX = 3.0 m/s²` (기존 0.0m/s² → 3.0m/s² 완화)
-* **근거**: 강한 스냅으로 약통을 털 때 약통이 110도 뒤집힌 상태에 정지해있지 않고 90도 부근에서 가속도 $Z$축이 동적으로 요동칩니다.
-* $Z$축 조건을 $3.0\,\text{m/s}^2$ 이하로 완화하여 흔드는 와중에 $Z$축이 미세하게 튀더라도 복용 감지가 취소되지 않도록 조치했습니다.
-
-### `INTAKE_SUSTAINED_SAMPLES = 10` (기존 20샘플 → 10샘플, 0.2초 하향)
-* **근거**: 손목 스냅을 이용한 강한 타격(털기) 주기는 $0.1 \sim 0.2$초의 순간 임펄스 형태입니다.
-* 50 Hz 센서 기준 10 샘플 ($0.2$초) 지속 조건으로 조정하여 스냅 동작을 놓치지 않고 즉시 복용 이벤트로 확정합니다.
+### ② 2차 방어: 복용 판별 80% 다수결 비율 (Majority Ratio $\ge 80\%$) 적용
+* **[backend/pipeline/imu_state.py](file:///Users/somui/workplace/handsfree-gym-tracker/backend/pipeline/imu_state.py)**
+* 10개 샘플(0.2초) 중 8개 이상 조건을 만족하면 순간 스파이크 튐 노이즈가 있어도 복용으로 안정적 확정.
 
 ---
 
 ## 4. 최종 확정 임계값 요약 표
 
-| 임계값 상수 | 기존 설정값 | 실측 튜닝값 | 적용 단위 | 튜닝 목적 및 주요 효과 |
+| 임계값 상수 | 기존 설정값 | 실측 최종 선정값 | 적용 단위 | 튜닝 및 분석 근거 |
 | :--- | :---: | :---: | :---: | :--- |
+| **`ALPHA`** | `0.65` | **`0.45`** | 계수 | 2샘플($0.2\text{s}$) 70% 추종 & 털기 직후 반동 진동(Ringing) 흡수 |
+| **`INTAKE_RATIO`** | `100%` (Strict) | **`80%`** ($\ge 8/10$) | 비율 | 1~2샘플 순간 충격 튐 노이즈 강건성 확보 |
 | **`MOVE_ACCEL_THRESHOLD`** | `0.04` | **`0.15`** | $\text{g}$ | 미세 바닥 진동 노이즈 오탐 방지 |
 | **`MOVE_GYRO_VAR`** | `0.40` | **`0.60`** | $(\text{rad/s})^2$ | 일상 손목 회전 안정성 확보 |
-| **`POURING_ACC_XY_MIN`** | `7.0` | **`15.0`** | $\text{m/s}^2$ | 손목 스냅 털기(Shaking) $2\,\text{g}$ 이상 강한 피크 감지 |
+| **`POURING_ACC_XY_MIN`** | `7.0` | **`15.0`** | $\text{m/s}^2$ | 손목 스냅 털기(Violent Shaking) $2\,\text{g}$ 이상 강한 피크 감지 |
 | **`POURING_ACC_Z_MAX`** | `0.0` | **`3.0`** | $\text{m/s}^2$ | 동적 털기 동작 중 90도 부근 $Z$축 동요 수용 |
 | **`INTAKE_SUSTAINED_SAMPLES`** | `20` ($0.4\text{s}$) | **`10`** ($0.2\text{s}$) | 샘플 수 | 순간 스냅 타격 피크 검출 감도 향상 |
