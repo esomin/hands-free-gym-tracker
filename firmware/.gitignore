@@ -1,0 +1,41 @@
+# Firmware / Embedded Development .gitignore
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+
+# Build Artifacts & Output Binaries
+build/
+builds/
+out/
+bin/
+*.elf
+*.hex
+*.bin
+*.map
+*.o
+*.a
+*.d
+
+# PlatformIO & ESP-IDF
+.pio/
+.pioenvs/
+.piolibdeps/
+managed_components/
+sdkconfig.old
+
+# Serial Logs & Dump Files
+*.log
+logs.txt
+
+# Sensitive Information & Wireless Credentials
+secrets.h
+credentials.h
+config.local.h
+
+# OS Artifacts
+.DS_Store
+Thumbs.db
