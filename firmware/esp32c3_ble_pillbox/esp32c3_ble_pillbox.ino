@@ -14,7 +14,7 @@ const int SDA_PIN = 8;
 const int SCL_PIN = 9;
 const int BUTTON_PIN = 9;  // BOOT 버튼 (Low Active)
 
-const uint8_t BMI160_I2C_ADDR = 0x69; // DFRobot 기본 주소 (필요 시 0x68로 변경 가능)
+const uint8_t bmi160_i2c_addr = 0x69; // DFRobot 기본 주소 (필요 시 0x68로 변경 가능)
 const unsigned long BUTTON_LONG_PRESS_MS = 3000; // 3초 페어링 버튼 롱프레스
 const unsigned long BLE_ADV_TIMEOUT_MS = 180000;  // 3분(180초) BLE Advertising 타임아웃
 
@@ -99,11 +99,14 @@ class ConfigCharCallbacks: public BLECharacteristicCallbacks {
 // ==========================================
 void setup() {
   Serial.begin(115200);
-  delay(2000); // USB CDC 초기화 대기
+  // USB CDC 연결 대기 (최대 4초 대기)
+  while (!Serial && millis() < 4000);
+  delay(500);
 
   Serial.println("\n=============================================");
   Serial.println(" ESP32-C3 Smart PillBox Firmware (BLE + IMU)");
   Serial.println("=============================================");
+  Serial.flush();
 
   // 1. BOOT 버튼 핀 설정 (GPIO 9, Pull-up)
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -129,7 +132,7 @@ void setup() {
     Serial.println("[WARN] BMI160 소프트 리셋 실패");
   }
   
-  if (bmi160.I2cInit(BMI160_I2C_ADDR) != BMI160_OK) {
+  if (bmi160.I2cInit(bmi160_i2c_addr) != BMI160_OK) {
     Serial.println("[ERROR] BMI160 센서 초기화 실패! 배선을 확인하세요.");
   } else {
     Serial.println("[SUCCESS] BMI160 센서 연결 성공 (I2C: 0x69)");
