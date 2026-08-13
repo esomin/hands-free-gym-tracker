@@ -4,7 +4,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from db.mongo_client import workout_logs
-from pipeline.mag_fingerprint import fingerprint_store
 from routers.demo import is_demo_running
 from state.session_cache import session_cache
 
@@ -74,16 +73,8 @@ async def get_session_snapshot(user_id: str):
             is_demo_running=is_demo_running(user_id),
         )
 
-    # 기구 정보: current_equipment_id로 fingerprint_store에서 이름 조회
+    # 기구/약통 정보
     equipment = None
-    if session.current_equipment_id:
-        entry = fingerprint_store._store.get(session.current_equipment_id)
-        if entry:
-            equipment = EquipmentInfo(
-                equipment_id=entry.equipment_id,
-                equipment_name=entry.equipment_name,
-                confidence=1.0,
-            )
 
     # in_progress 로그: 가장 최근 것 1건 조회
     in_progress_log = None

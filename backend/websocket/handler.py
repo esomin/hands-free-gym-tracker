@@ -7,13 +7,7 @@ from datetime import datetime, timezone
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from pipeline.imu_state import SensorReading, detect_tumbler_state, make_state_event
-from pipeline.mag_fingerprint import (
-    MIN_SETTLE_SAMPLES,
-    make_equipment_detected_event,
-    make_equipment_unknown_event,
-    match_from_samples,
-)
+from pipeline.imu_state import SensorReading, detect_bottle_state, make_state_event
 from pipeline.noise_filter import filter_sensor, filter_sensor_3axis
 from state.session_cache import session_cache
 
@@ -170,9 +164,9 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                 except Exception as e:
                     print(f'[handler] MongoDB 저장 실패: {e}')
 
-            # ── 4. IMU 텀블러/약통 상태 판별 ─────────────────────────────────
+            # ── 4. IMU 약통 상태 판별 ─────────────────────────────────
             prev_state = session.tumbler_state
-            new_state = detect_tumbler_state(session.recent_sensor_window)
+            new_state = detect_bottle_state(session.recent_sensor_window)
             session.tumbler_state = new_state
 
             if new_state != prev_state:
@@ -182,31 +176,6 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             state_event = make_state_event(new_state, prev_state, timestamp=ts)
             if state_event:
                 await manager.broadcast(user_id, state_event)
-
-            # ── 4. 지자기 지문 매칭 (이동→거치됨 전이 시에만) ────────────────
-            if new_state == 'settled' and prev_state == 'moving':
-                mag_samples = list(session.recent_mag_window)
-                print(f'[handler] mag_fingerprint 시도: mag_samples={len(mag_samples)} '
-                      f'(필요: {MIN_SETTLE_SAMPLES})')
-                if len(mag_samples) >= MIN_SETTLE_SAMPLES:
-                    matched, avg_vec = match_from_samples(mag_samples)
-                    if matched:
-                        session.current_equipment_id = matched.equipment_id
-                        equipment_event = make_equipment_detected_event(
-                            matched,
-                            confidence=1.0,
-                            timestamp=ts,
-                        )
-                    else:
-                        session.current_equipment_id = None
-                        # 등록 API 호출 시 사용할 지자기 평균 벡터를 세션에 임시 저장
-                        session.pending_mag_vector = avg_vec
-                        equipment_event = make_equipment_unknown_event(
-                            raw_fingerprint_id=str(uuid.uuid4()),
-                            timestamp=ts,
-                        )
-                    print(f'[handler] 브로드캐스트: {equipment_event["type"]}')
-                    await manager.broadcast(user_id, equipment_event)
 
     except WebSocketDisconnect:
         pass

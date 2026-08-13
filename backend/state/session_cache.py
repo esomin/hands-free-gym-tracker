@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from pipeline.imu_state import WINDOW_SIZE, BottleState, SensorReading
-from pipeline.mag_fingerprint import MagVector
 
 MAX_SESSIONS = 500
 
@@ -37,7 +36,7 @@ class SessionState:
 
     # equipment_unknown 이벤트 발생 시 임시 저장된 지자기 평균 벡터
     # POST /api/equipment/register 에서 fingerprint_store 등록에 사용 후 None으로 초기화
-    pending_mag_vector: MagVector | None
+    pending_mag_vector: tuple[float, float, float] | None
 
     # 세션 시작 시각
     session_started_at: datetime
