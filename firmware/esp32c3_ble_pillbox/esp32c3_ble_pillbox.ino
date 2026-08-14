@@ -5,18 +5,21 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <esp_mac.h>
+#include <WiFi.h>
+#include <Preferences.h>
+#include <WebSocketsClient.h>
 
 // ==========================================
 // 1. 하드웨어 핀 및 상수 정의 (ESP32-C3 Super Mini)
 // ==========================================
-// 핀맵: SDA=GPIO 8 (내장 LED 공유), SCL=GPIO 9 (BOOT 버튼 공유)
 const int SDA_PIN = 8;
 const int SCL_PIN = 9;
 const int BUTTON_PIN = 9;  // BOOT 버튼 (Low Active)
 
-const uint8_t bmi160_i2c_addr = 0x69; // DFRobot 기본 주소 (필요 시 0x68로 변경 가능)
+const uint8_t bmi160_i2c_addr = 0x69; // DFRobot 기본 주소
 const unsigned long BUTTON_LONG_PRESS_MS = 3000; // 3초 페어링 버튼 롱프레스
 const unsigned long BLE_ADV_TIMEOUT_MS = 180000;  // 3분(180초) BLE Advertising 타임아웃
+const unsigned long STREAM_INTERVAL_MS = 50;      // 20Hz (50ms) 주기 센서 스트리밍
 
 // ==========================================
 // 2. BLE UUID 정의 (GATT Profile)
@@ -30,6 +33,8 @@ const unsigned long BLE_ADV_TIMEOUT_MS = 180000;  // 3분(180초) BLE Advertisin
 // 3. 전역 변수 및 객체 선언
 // ==========================================
 DFRobot_BMI160 bmi160;
+Preferences preferences;
+WebSocketsClient webSocket;
 
 // IMU 영점(오프셋) 저장 변수
 float ax_offset = 0, ay_offset = 0, az_offset = 0;
@@ -48,16 +53,28 @@ unsigned long advStartTime = 0;
 String deviceMacAddress = "";
 String deviceName = "";
 
-// 버튼 처리 변수
+// Wi-Fi & WebSocket & NVS 설정 변수
+String wifiSSID = "";
+String wifiPass = "";
+String wsUrl = "ws://192.168.0.10:8000/ws/default_user";
+bool wsConnected = false;
+bool triggerWifiConnectFlag = false;
+bool triggerWsSetupFlag = false;
+
+// 버튼 및 상태 처리 변수
 unsigned long buttonPressStartTime = 0;
 bool buttonIsPressed = false;
 bool triggerCalibrationFlag = false;
+unsigned long lastCalibrationNotifyTime = 0;
 
 // 함수 프로토타입 선언
 void calibrateZero();
 void initBLE();
 void startBLEAdvertising();
 void stopBLEAdvertising();
+void connectWiFi();
+void setupWebSocket(String url);
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
 // ==========================================
 // 4. BLE 서버 및 특성 콜백 클래스 정의
@@ -78,33 +95,68 @@ class ConfigCharCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) override {
       String value = pCharacteristic->getValue();
       if (value.length() > 0) {
-        Serial.print("[BLE 수신] Config 데이터: ");
-        for (int i = 0; i < value.length(); i++) {
-          Serial.print((int)value[i], HEX);
-          Serial.print(" ");
-        }
-        Serial.println();
+        Serial.print("[BLE 수신] Config 설정: "); Serial.println(value);
 
-        // 0x01 수신 시 영점 재잡기(Calibration) 실행 명령
-        if ((uint8_t)value[0] == 0x01) {
+        // 1. 0x01 수신 시 영점 재잡기(Calibration) 실행 명령
+        if ((uint8_t)value[0] == 0x01 && value.length() == 1) {
           Serial.println("[BLE] 원격 영점 조절 명령 수신!");
           triggerCalibrationFlag = true;
+        }
+        // 2. WIFI:SSID,PASSWORD 포맷 수신
+        else if (value.startsWith("WIFI:")) {
+          String payload = value.substring(5);
+          int commaIdx = payload.indexOf(',');
+          if (commaIdx > 0) {
+            wifiSSID = payload.substring(0, commaIdx);
+            wifiPass = payload.substring(commaIdx + 1);
+            Serial.print("[BLE] Wi-Fi SSID: "); Serial.println(wifiSSID);
+
+            // NVS에 저장
+            preferences.begin("pillbox", false);
+            preferences.putString("ssid", wifiSSID);
+            preferences.putString("pass", wifiPass);
+            preferences.end();
+
+            triggerWifiConnectFlag = true;
+          }
+        }
+        // 3. WS:URL 포맷 수신 (예: WS:ws://192.168.0.10:8000/ws/default_user)
+        else if (value.startsWith("WS:")) {
+          wsUrl = value.substring(3);
+          Serial.print("[BLE] WebSocket URL: "); Serial.println(wsUrl);
+
+          // NVS에 저장
+          preferences.begin("pillbox", false);
+          preferences.putString("wsurl", wsUrl);
+          preferences.end();
+
+          triggerWsSetupFlag = true;
+        }
+        // 4. CLEAR_CONFIG 수신 시 NVS 정보 삭제
+        else if (value == "CLEAR_CONFIG") {
+          Serial.println("[BLE] NVS 설정 삭제 명령 수신!");
+          preferences.begin("pillbox", false);
+          preferences.clear();
+          preferences.end();
+          wifiSSID = ""; wifiPass = "";
+          WiFi.disconnect(true);
+          wsConnected = false;
         }
       }
     }
 };
-
+  
 // ==========================================
 // 5. setup() 초기화 함수
 // ==========================================
 void setup() {
   Serial.begin(115200);
-  // USB CDC 연결 대기 (최대 4초 대기)
   while (!Serial && millis() < 4000);
   delay(500);
 
   Serial.println("\n=============================================");
-  Serial.println(" ESP32-C3 Smart PillBox Firmware (BLE + IMU)");
+  Serial.println(" ESP32-C3 Smart PillBox Firmware (Phase 2)");
+  Serial.println(" (BLE + Wi-Fi Provisioning + WebSocket 20Hz)");
   Serial.println("=============================================");
   Serial.flush();
 
@@ -126,7 +178,21 @@ void setup() {
   Serial.print("[HW Info] MAC Address: "); Serial.println(deviceMacAddress);
   Serial.print("[HW Info] BLE Device Name: "); Serial.println(deviceName);
 
-  // 3. I2C 및 BMI160 센서 초기화 (GPIO 8=SDA, GPIO 9=SCL)
+  // 3. NVS 저장된 Wi-Fi 및 WebSocket 설정 로드
+  preferences.begin("pillbox", true);
+  wifiSSID = preferences.getString("ssid", "");
+  wifiPass = preferences.getString("pass", "");
+  wsUrl = preferences.getString("wsurl", "ws://192.168.0.10:8000/ws/default_user");
+  preferences.end();
+
+  if (wifiSSID.length() > 0) {
+    Serial.print("[NVS] 저장된 Wi-Fi 정보 발견: "); Serial.println(wifiSSID);
+    triggerWifiConnectFlag = true;
+  } else {
+    Serial.println("[NVS] 저장된 Wi-Fi 정보 없음 (BLE 프로비저닝 대기)");
+  }
+
+  // 4. I2C 및 BMI160 센서 초기화 (GPIO 8=SDA, GPIO 9=SCL)
   Wire.begin(SDA_PIN, SCL_PIN);
   if (bmi160.softReset() != BMI160_OK) {
     Serial.println("[WARN] BMI160 소프트 리셋 실패");
@@ -136,15 +202,14 @@ void setup() {
     Serial.println("[ERROR] BMI160 센서 초기화 실패! 배선을 확인하세요.");
   } else {
     Serial.println("[SUCCESS] BMI160 센서 연결 성공 (I2C: 0x69)");
-    // 시작 시 영점 가조작 진행
     calibrateZero();
   }
 
-  // 4. BLE 스택 초기화 (기본 상태: Advertising 꺼짐)
+  // 5. BLE 스택 초기화
   initBLE();
 
   Serial.println("\n[안내] BOOT 버튼(GPIO 9)을 3초간 누르면 BLE 페어링 모드(Advertising)가 시작됩니다.");
-  Serial.println("[안내] 시리얼 모니터에 't' 입력 시 영점 교정이 시작됩니다.\n");
+  Serial.println("[안내] BLE Config로 'WIFI:SSID,PASS' 또는 'WS:ws://IP:PORT/ws/user'를 전송하세요.\n");
 }
 
 // ==========================================
@@ -153,7 +218,7 @@ void setup() {
 void loop() {
   // --- A. 3초 버튼 롱프레스 감지 (Non-blocking) ---
   int btnState = digitalRead(BUTTON_PIN);
-  if (btnState == LOW) { // 버튼 눌림 상태
+  if (btnState == LOW) {
     if (!buttonIsPressed) {
       buttonIsPressed = true;
       buttonPressStartTime = millis();
@@ -164,26 +229,25 @@ void loop() {
         startBLEAdvertising();
       }
     }
-  } else { // 버튼 해제 상태
+  } else {
     if (buttonIsPressed) {
       buttonIsPressed = false;
-      // 버튼 누름 해제 후 I2C Bus 재동기화 (SCL line 정돈)
       Wire.begin(SDA_PIN, SCL_PIN);
     }
   }
 
-  // --- B. BLE Advertising 타임아웃 (180초 후 자동 중단) ---
+  // --- B. BLE Advertising 타임아웃 ---
   if (isAdvertising && !deviceConnected) {
     if (millis() - advStartTime >= BLE_ADV_TIMEOUT_MS) {
-      Serial.println("\n[BLE] Advertising 타임아웃 (3분 경과). 배터리 절약을 위해 BLE 중단.");
+      Serial.println("\n[BLE] Advertising 타임아웃 (3분 경과). BLE 중단.");
       stopBLEAdvertising();
     }
   }
 
   // --- C. BLE 연결 해제 후 재광고 처리 ---
   if (!deviceConnected && oldDeviceConnected) {
-    delay(500); // 버퍼 정리 대기
-    pServer->startAdvertising(); // 재연결 대기
+    delay(500);
+    pServer->startAdvertising();
     Serial.println("[BLE] 연결 해제 후 Advertising 재개");
     oldDeviceConnected = deviceConnected;
   }
@@ -191,13 +255,28 @@ void loop() {
     oldDeviceConnected = deviceConnected;
   }
 
-  // --- D. 영점 조절 플래그 처리 ---
+  // --- D. Wi-Fi 및 WebSocket 연결 요청 처리 ---
+  if (triggerWifiConnectFlag) {
+    triggerWifiConnectFlag = false;
+    connectWiFi();
+  }
+  if (triggerWsSetupFlag) {
+    triggerWsSetupFlag = false;
+    setupWebSocket(wsUrl);
+  }
+
+  // --- E. WebSocket 클라이언트 이벤트 처리 ---
+  if (WiFi.status() == WL_CONNECTED) {
+    webSocket.loop();
+  }
+
+  // --- F. 영점 조절 플래그 처리 ---
   if (triggerCalibrationFlag) {
     triggerCalibrationFlag = false;
     calibrateZero();
   }
 
-  // --- E. 시리얼 입력 처리 ('t' 또는 'r' 입력 시 영점 재잡기) ---
+  // --- G. 시리얼 입력 처리 ---
   if (Serial.available() > 0) {
     char cmd = Serial.read();
     if (cmd == 't' || cmd == 'T' || cmd == 'r' || cmd == 'R') {
@@ -205,44 +284,131 @@ void loop() {
     }
   }
 
-  // --- F. 버튼 누르고 있는 중이 아닐 때만 IMU 센서 데이터 측정 및 출력 ---
-  if (!buttonIsPressed) {
-    int16_t accelGyro[6] = {0};
-    if (bmi160.getAccelGyroData(accelGyro) == BMI160_OK) {
-      float zero_gx = accelGyro[0] - gx_offset;
-      float zero_gy = accelGyro[1] - gy_offset;
-      float zero_gz = accelGyro[2] - gz_offset;
+  // --- H. 20Hz (50ms) 주기 센서 읽기 및 백엔드 WebSocket 실시간 스트리밍 ---
+  static unsigned long lastStreamTime = 0;
+  if (millis() - lastStreamTime >= STREAM_INTERVAL_MS) {
+    lastStreamTime = millis();
 
-      float zero_ax = accelGyro[3] - ax_offset;
-      float zero_ay = accelGyro[4] - ay_offset;
-      float zero_az = accelGyro[5] - az_offset;
+    if (!buttonIsPressed) {
+      int16_t accelGyro[6] = {0};
+      if (bmi160.getAccelGyroData(accelGyro) == BMI160_OK) {
+        float zero_gx = accelGyro[0] - gx_offset;
+        float zero_gy = accelGyro[1] - gy_offset;
+        float zero_gz = accelGyro[2] - gz_offset;
 
-      // 시리얼 디버그 출력 (필요 시 주석 가능)
-      Serial.print("Acc [X,Y,Z]: ");
-      Serial.print(zero_ax, 1); Serial.print("\t");
-      Serial.print(zero_ay, 1); Serial.print("\t");
-      Serial.print(zero_az, 1); Serial.print("\t | Gyro: ");
-      Serial.print(zero_gx, 1); Serial.print("\t");
-      Serial.print(zero_gy, 1); Serial.print("\t");
-      Serial.println(zero_gz, 1);
+        float zero_ax = accelGyro[3] - ax_offset;
+        float zero_ay = accelGyro[4] - ay_offset;
+        float zero_az = accelGyro[5] - az_offset;
 
-      // 앱과 BLE 연결되어 있는 경우 STATUS Characteristic으로 데이터 Notify
-      if (deviceConnected) {
-        char statusPayload[64];
-        snprintf(statusPayload, sizeof(statusPayload),
-                 "A:%.0f,%.0f,%.0f|G:%.0f,%.0f,%.0f",
-                 zero_ax, zero_ay, zero_az, zero_gx, zero_gy, zero_gz);
-        pStatusCharacteristic->setValue(statusPayload);
-        pStatusCharacteristic->notify();
+        // Raw LSB -> 물리 단위 변환 (±2g 기준 1g = 16384 LSB, 1g = 9.81 m/s^2)
+        float phys_ax = (zero_ax / 16384.0f) * 9.81f;
+        float phys_ay = (zero_ay / 16384.0f) * 9.81f;
+        float phys_az = (zero_az / 16384.0f) * 9.81f;
+
+        // Gyro rad/s 변환 (±250dps 기준 1dps = 131 LSB, 1dps = 0.01745 rad/s)
+        float phys_gx = (zero_gx / 131.0f) * 0.0174533f;
+        float phys_gy = (zero_gy / 131.0f) * 0.0174533f;
+        float phys_gz = (zero_gz / 131.0f) * 0.0174533f;
+
+        // 백엔드 파이프라인 호환 JSON 생성 (6축 정밀 데이터)
+        char payload[256];
+        snprintf(payload, sizeof(payload),
+                 "{\"bottle_id\":\"%s\",\"acc_x\":%.3f,\"acc_y\":%.3f,\"acc_z\":%.3f,\"gyro_x\":%.3f,\"gyro_y\":%.3f,\"gyro_z\":%.3f}",
+                 deviceName.c_str(), phys_ax, phys_ay, phys_az, phys_gx, phys_gy, phys_gz);
+
+        // 1. WebSocket 서버로 백엔드 파이프라인 센서 데이터 송신 (20Hz)
+        if (wsConnected) {
+          webSocket.sendTXT(payload);
+        }
+
+        // 2. BLE Connected 상태인 경우 BLE Status Notify 전송 (CALIBRATION_OK 대기 보호)
+        if (deviceConnected && (millis() - lastCalibrationNotifyTime > 2500)) {
+          pStatusCharacteristic->setValue(payload);
+          pStatusCharacteristic->notify();
+        }
       }
     }
   }
 
-  delay(100);
+  delay(1); // CPU 선점 방지
 }
 
 // ==========================================
-// 7. 영점 조절 (Calibration) 함수
+// 7. Wi-Fi 접속 함수
+// ==========================================
+void connectWiFi() {
+  if (wifiSSID.length() == 0) return;
+
+  Serial.println("\n[Wi-Fi] 연결 시도 중... SSID: " + wifiSSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("[Wi-Fi 성공] 할당받은 IP: ");
+    Serial.println(WiFi.localIP());
+
+    // Wi-Fi 성공 후 WebSocket 연결 시도
+    setupWebSocket(wsUrl);
+  } else {
+    Serial.println("[Wi-Fi 실패] Wi-Fi 접속에 실패했습니다. SSID/비밀번호를 확인하세요.");
+  }
+}
+
+// ==========================================
+// 8. WebSocket 설정 및 연결 함수
+// ==========================================
+void setupWebSocket(String url) {
+  if (url.length() == 0) return;
+
+  String temp = url;
+  if (temp.startsWith("ws://")) {
+    temp = temp.substring(5);
+  } else if (temp.startsWith("wss://")) {
+    temp = temp.substring(6);
+  }
+
+  int slashIdx = temp.indexOf('/');
+  String hostPort = (slashIdx >= 0) ? temp.substring(0, slashIdx) : temp;
+  String path = (slashIdx >= 0) ? temp.substring(slashIdx) : "/";
+
+  int colonIdx = hostPort.indexOf(':');
+  String host = (colonIdx >= 0) ? hostPort.substring(0, colonIdx) : hostPort;
+  int port = (colonIdx >= 0) ? hostPort.substring(colonIdx + 1).toInt() : 80;
+
+  Serial.println("\n[WebSocket 설정] Host: " + host + ", Port: " + String(port) + ", Path: " + path);
+  webSocket.begin(host.c_str(), port, path.c_str());
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+}
+
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch (type) {
+    case WStype_DISCONNECTED:
+      wsConnected = false;
+      Serial.println("[WS] WebSocket 연결 해제됨");
+      break;
+    case WStype_CONNECTED:
+      wsConnected = true;
+      Serial.printf("[WS] 백엔드 WebSocket 서버 연결 성공! URL: %s\n", payload);
+      break;
+    case WStype_TEXT:
+      Serial.printf("[WS 수신] 백엔드 메시지: %s\n", payload);
+      break;
+    default:
+      break;
+  }
+}
+
+// ==========================================
+// 9. 영점 조절 (Calibration) 함수
 // ==========================================
 void calibrateZero() {
   Serial.println("\n[IMU] 영점 조절 중... 약통을 가만히 두세요.");
@@ -255,48 +421,35 @@ void calibrateZero() {
     int16_t accelGyro[6] = {0};
     bmi160.getAccelGyroData(accelGyro);
 
-    sum_gx += accelGyro[0];
-    sum_gy += accelGyro[1];
-    sum_gz += accelGyro[2];
-
-    sum_ax += accelGyro[3];
-    sum_ay += accelGyro[4];
-    sum_az += accelGyro[5];
-
+    sum_gx += accelGyro[0]; sum_gy += accelGyro[1]; sum_gz += accelGyro[2];
+    sum_ax += accelGyro[3]; sum_ay += accelGyro[4]; sum_az += accelGyro[5];
     delay(10);
   }
 
-  gx_offset = sum_gx / samples;
-  gy_offset = sum_gy / samples;
-  gz_offset = sum_gz / samples;
-
-  ax_offset = sum_ax / samples;
-  ay_offset = sum_ay / samples;
-  az_offset = sum_az / samples;
+  gx_offset = sum_gx / samples; gy_offset = sum_gy / samples; gz_offset = sum_gz / samples;
+  ax_offset = sum_ax / samples; ay_offset = sum_ay / samples; az_offset = sum_az / samples;
 
   Serial.println("[IMU] 영점 조절 완료!");
 
   if (deviceConnected) {
     pStatusCharacteristic->setValue("CALIBRATION_OK");
     pStatusCharacteristic->notify();
+    lastCalibrationNotifyTime = millis();
+    Serial.println("[BLE] CALIBRATION_OK 알림(Notify) 전송 완료");
   }
 }
 
 // ==========================================
-// 8. BLE 초기화 및 제어 함수
+// 10. BLE 초기화 및 제어 함수
 // ==========================================
 void initBLE() {
-  // BLE 디바이스 초기화
   BLEDevice::init(deviceName.c_str());
 
-  // BLE 서버 생성
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
-  // BLE 서비스 생성
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
-  // Status Characteristic (Read, Notify)
   pStatusCharacteristic = pService->createCharacteristic(
                             STATUS_CHAR_UUID,
                             BLECharacteristic::PROPERTY_READ |
@@ -305,7 +458,6 @@ void initBLE() {
   pStatusCharacteristic->addDescriptor(new BLE2902());
   pStatusCharacteristic->setValue("IDLE");
 
-  // Config Characteristic (Read, Write)
   pConfigCharacteristic = pService->createCharacteristic(
                             CONFIG_CHAR_UUID,
                             BLECharacteristic::PROPERTY_READ |
@@ -313,25 +465,22 @@ void initBLE() {
                           );
   pConfigCharacteristic->setCallbacks(new ConfigCharCallbacks());
 
-  // Info Characteristic (Read - MAC Address & Firmware version)
   pInfoCharacteristic = pService->createCharacteristic(
                           INFO_CHAR_UUID,
                           BLECharacteristic::PROPERTY_READ
                         );
-  String infoStr = "MAC:" + deviceMacAddress + ",FW:v1.0.0";
+  String infoStr = "MAC:" + deviceMacAddress + ",FW:v2.0.0";
   pInfoCharacteristic->setValue(infoStr.c_str());
 
-  // 서비스 시작
   pService->start();
-
-  Serial.println("[BLE] GATT Profile 및 서비스 초기화 완료.");
+  Serial.println("[BLE] GATT Profile (v2.0.0) 초기화 완료.");
 }
 
 void startBLEAdvertising() {
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06); // iPhone 연결 호환성 설정
+  pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMinPreferred(0x12);
   
   BLEDevice::startAdvertising();
