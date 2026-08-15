@@ -109,7 +109,10 @@ class ConfigCharCallbacks: public BLECharacteristicCallbacks {
           if (commaIdx > 0) {
             wifiSSID = payload.substring(0, commaIdx);
             wifiPass = payload.substring(commaIdx + 1);
-            Serial.print("[BLE] Wi-Fi SSID: "); Serial.println(wifiSSID);
+            wifiSSID.trim();
+            wifiPass.trim();
+            Serial.print("[BLE] Wi-Fi SSID: ["); Serial.print(wifiSSID); Serial.println("]");
+            Serial.print("[BLE] Wi-Fi Pass 길이: "); Serial.println(wifiPass.length());
 
             // NVS에 저장
             preferences.begin("pillbox", false);
@@ -123,7 +126,8 @@ class ConfigCharCallbacks: public BLECharacteristicCallbacks {
         // 3. WS:URL 포맷 수신 (예: WS:ws://192.168.0.10:8000/ws/default_user)
         else if (value.startsWith("WS:")) {
           wsUrl = value.substring(3);
-          Serial.print("[BLE] WebSocket URL: "); Serial.println(wsUrl);
+          wsUrl.trim();
+          Serial.print("[BLE] WebSocket URL: ["); Serial.print(wsUrl); Serial.println("]");
 
           // NVS에 저장
           preferences.begin("pillbox", false);
@@ -337,19 +341,52 @@ void loop() {
 // 7. Wi-Fi 접속 함수
 // ==========================================
 void connectWiFi() {
+  wifiSSID.trim();
+  wifiPass.trim();
   if (wifiSSID.length() == 0) return;
 
-  Serial.println("\n[Wi-Fi] 기존 연결 초기화 및 접속 시도 중... SSID: " + wifiSSID);
+  Serial.println("\n[Wi-Fi] 기존 연결 초기화 및 2.4GHz AP 스캔 시도... Target: [" + wifiSSID + "]");
+  Serial.print("[Wi-Fi] Password 길이: "); Serial.println(wifiPass.length());
 
-  // 이전 접속 시도 세션 깔끔히 정리 (wifi:sta is connecting 에러 방지)
+  // 1. BLE 라디오 간섭 방지를 위해 광고 일시 중단 (ESP32-C3 RF 자원 확보)
+  bool wasAdv = isAdvertising;
+  if (isAdvertising) {
+    BLEDevice::stopAdvertising();
+    delay(100);
+  }
+
+  // 2. Wi-Fi STA 모드 리셋
   WiFi.disconnect(true);
   delay(200);
-  WiFi.mode(WIFI_OFF);
-  delay(100);
   WiFi.mode(WIFI_STA);
-  delay(100);
+  delay(300);
 
-  WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
+  // 3. 2.4GHz AP 스캔 수행 (채널 확정용)
+  Serial.println("[Wi-Fi] 주변 2.4GHz AP 스캔 중...");
+  int n = WiFi.scanNetworks(false, true);
+  int targetChannel = 0;
+
+  if (n <= 0) {
+    Serial.printf("[Wi-Fi 경고] AP 스캔 결과: %d (스캔 실패 또는 AP 미발견)\n", n);
+  } else {
+    Serial.printf("[Wi-Fi] 총 %d개의 2.4GHz AP 발견:\n", n);
+    for (int i = 0; i < n; ++i) {
+      String foundSSID = WiFi.SSID(i);
+      Serial.printf("  %d: %s (신호: %d dBm, 채널: %d)\n", i + 1, foundSSID.c_str(), WiFi.RSSI(i), WiFi.channel(i));
+      if (foundSSID == wifiSSID) {
+        targetChannel = WiFi.channel(i);
+        Serial.printf("  ===> 대상 AP 발견! (채널 %d번으로 빠른 접속 진행)\n", targetChannel);
+      }
+    }
+  }
+
+  // 4. Wi-Fi 접속 시도 (타겟 채널 지정)
+  Serial.println("[Wi-Fi] 접속 시도 중...");
+  if (targetChannel > 0) {
+    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str(), targetChannel);
+  } else {
+    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
+  }
 
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 30) {
@@ -366,7 +403,13 @@ void connectWiFi() {
     // Wi-Fi 성공 후 WebSocket 연결 시도
     setupWebSocket(wsUrl);
   } else {
-    Serial.println("[Wi-Fi 실패] Wi-Fi 접속에 실패했습니다. SSID/비밀번호를 확인하세요.");
+    Serial.printf("[Wi-Fi 실패] Status 코드: %d\n", (int)WiFi.status());
+    Serial.println("  -> 비밀번호가 맞는지 또는 신호 상태를 확인하세요.");
+  }
+
+  // BLE 광고 상태 복구
+  if (wasAdv && !deviceConnected) {
+    BLEDevice::startAdvertising();
   }
 }
 
