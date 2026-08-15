@@ -222,11 +222,13 @@ void setup() {
     Serial.println("[NVS] 저장된 Wi-Fi 정보 없음 (BLE 프로비저닝 대기)");
   }
 
-  // 6. BLE 스택 초기화
+  // 6. BLE 스택 초기화 및 BLE Advertising 즉시 시작
   initBLE();
+  startBLEAdvertising();
 
-  Serial.println("\n[안내] BOOT 버튼(GPIO 9)을 3초간 누르면 BLE 페어링 모드(Advertising)가 시작됩니다.");
-  Serial.println("[안내] BLE Config로 'WIFI:SSID,PASS' 또는 'WS:ws://IP:PORT/ws/user'를 전송하세요.\n");
+  Serial.println("\n[BLE] BLE 페어링 모드(Advertising)가 활성화되었습니다.");
+  Serial.println("[안내] 웹 브라우저에서 'WIFI:SSID,PASS' 또는 'WS:ws://IP:PORT/ws/user'를 전송하세요.");
+  Serial.println("[안내] 수동 재광고 필요 시 BOOT 버튼(GPIO 9)을 3초간 누르세요.\n");
 }
 
 // ==========================================
