@@ -469,8 +469,10 @@ void initBLE() {
   pConfigCharacteristic = pService->createCharacteristic(
                             CONFIG_CHAR_UUID,
                             BLECharacteristic::PROPERTY_READ |
-                            BLECharacteristic::PROPERTY_WRITE
+                            BLECharacteristic::PROPERTY_WRITE |
+                            BLECharacteristic::PROPERTY_WRITE_NR
                           );
+  pConfigCharacteristic->addDescriptor(new BLE2902());
   pConfigCharacteristic->setCallbacks(new ConfigCharCallbacks());
 
   pInfoCharacteristic = pService->createCharacteristic(
