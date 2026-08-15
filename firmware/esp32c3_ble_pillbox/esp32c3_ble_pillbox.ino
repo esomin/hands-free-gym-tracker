@@ -126,7 +126,11 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
           preferences.putString("pass", wifiPass);
           preferences.end();
 
-          triggerWifiConnectFlag = true;
+          // BLE 종료 후 재부팅 → setup()에서 BLE 없이 Wi-Fi 먼저 연결
+          Serial.println("[SYSTEM] Wi-Fi 설정 저장 완료. 재부팅하여 BLE 없이 "
+                         "Wi-Fi 연결합니다...");
+          delay(500);
+          esp_restart();
         }
       }
       // 3. WS:URL 포맷 수신 (예: WS:ws://192.168.0.10:8000/ws/default_user)
@@ -142,7 +146,9 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
         preferences.putString("wsurl", wsUrl);
         preferences.end();
 
-        triggerWsSetupFlag = true;
+        Serial.println("[SYSTEM] WebSocket 설정 저장 완료. 재부팅합니다...");
+        delay(500);
+        esp_restart();
       }
       // 4. CLEAR_CONFIG 수신 시 NVS 정보 삭제
       else if (value == "CLEAR_CONFIG") {
@@ -199,16 +205,8 @@ void setup() {
   wifiSSID = preferences.getString("ssid", "");
   wifiPass = preferences.getString("pass", "");
   wsUrl =
-      preferences.getString("wsurl", "ws://192.168.0.10:8000/ws/default_user");
+      preferences.getString("wsurl", "ws://172.30.1.89:8000/ws/default_user");
   preferences.end();
-
-  if (wifiSSID.length() > 0) {
-    Serial.print("[NVS] 저장된 Wi-Fi 정보 발견: ");
-    Serial.println(wifiSSID);
-    triggerWifiConnectFlag = true;
-  } else {
-    Serial.println("[NVS] 저장된 Wi-Fi 정보 없음 (BLE 프로비저닝 대기)");
-  }
 
   // 4. I2C 및 BMI160 센서 초기화 (GPIO 8=SDA, GPIO 9=SCL)
   Wire.begin(SDA_PIN, SCL_PIN);
@@ -223,7 +221,16 @@ void setup() {
     calibrateZero();
   }
 
-  // 5. BLE 스택 초기화
+  // 5. Wi-Fi 먼저 연결 (BLE 스택 초기화 전 → RF 충돌 원천 차단)
+  if (wifiSSID.length() > 0) {
+    Serial.print("[NVS] 저장된 Wi-Fi 정보 발견: ");
+    Serial.println(wifiSSID);
+    connectWiFi();
+  } else {
+    Serial.println("[NVS] 저장된 Wi-Fi 정보 없음 (BLE 프로비저닝 대기)");
+  }
+
+  // 6. BLE 스택 초기화 (Wi-Fi 연결 완료 후)
   initBLE();
 
   Serial.println("\n[안내] BOOT 버튼(GPIO 9)을 3초간 누르면 BLE 페어링 "
@@ -367,69 +374,39 @@ void connectWiFi() {
   if (wifiSSID.length() == 0)
     return;
 
-  Serial.println(
-      "\n[Wi-Fi] 기존 연결 초기화 및 2.4GHz AP 접속 시도... Target: [" +
-      wifiSSID + "]");
-  Serial.print("[Wi-Fi] Password 길이: ");
-  Serial.println(wifiPass.length());
+  Serial.println("\n[Wi-Fi] 접속 시도... Target: [" + wifiSSID + "]");
+  Serial.print("[Wi-Fi] Pass 길이: "); Serial.println(wifiPass.length());
 
-  // 1. BLE 라디오 완전 해제 (항상 실행 - BLE Connected / NVS 부팅 경로 모두 포함)
-  BLEDevice::deinit(true);
-  deviceConnected = false;
-  isAdvertising = false;
-  delay(500);
+  // NVS 비밀번호 HEX 검증
+  Serial.print("[Wi-Fi] Pass HEX: ");
+  for (int i = 0; i < (int)wifiPass.length(); i++) {
+    Serial.printf("%02X(%c) ", (uint8_t)wifiPass[i], wifiPass[i]);
+  }
+  Serial.println();
 
-  // 2. Wi-Fi STA 모드 리셋 & Modem Sleep 절전 해제 (WPA2 4-Way Handshake 패킷 드롭 방지)
-  WiFi.disconnect(true);
-  delay(200);
-  WiFi.mode(WIFI_STA);
+  // Wi-Fi 드라이버 완전 클린 재초기화
+  WiFi.persistent(false);   // NVS에 자격증명 저장 안 함 (내부 캐시 오염 방지)
+  WiFi.mode(WIFI_OFF);      // 완전 종료
+  delay(300);
+  WiFi.mode(WIFI_STA);      // STA 모드 재시작
+  WiFi.setTxPower(WIFI_POWER_19_5dBm); // 최대 송신 출력 (WPA2 Handshake 패킷 도달 보장)
   WiFi.setSleep(false);
-  esp_wifi_set_ps(WIFI_PS_NONE);
-  delay(200);
+  delay(300);
 
-  // 3. 주변 2.4GHz AP 스캔 수행
-  Serial.println("[Wi-Fi] 주변 2.4GHz AP 스캔 중...");
-  int n = WiFi.scanNetworks(false, true);
-  int targetChannel = 0;
-  int bestRSSI = -100;
-  bool foundTarget = false;
-
-  if (n > 0) {
-    for (int i = 0; i < n; ++i) {
-      String foundSSID = WiFi.SSID(i);
-      int rssi = WiFi.RSSI(i);
-      Serial.printf("  %d: %s (신호: %d dBm, 채널: %d)\n", i + 1,
-                    foundSSID.c_str(), rssi, WiFi.channel(i));
-      if (foundSSID == wifiSSID && rssi > bestRSSI) {
-        bestRSSI = rssi;
-        targetChannel = WiFi.channel(i);
-        foundTarget = true;
-      }
-    }
-  }
-
-  if (foundTarget) {
-    Serial.printf("  ===> 타깃 AP [%s] 발견! (신호: %d dBm, 채널: %d)\n",
-                  wifiSSID.c_str(), bestRSSI, targetChannel);
-  }
-
-  WiFi.scanDelete();
-
-  // 4. Wi-Fi 접속 시도 (타깃 채널 1번 바인딩 및 WPA2 핸드셰이크)
-  Serial.println("[Wi-Fi] WPA2 4-Way Handshake 접속 시도 중...");
-  if (foundTarget && targetChannel > 0) {
-    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str(), targetChannel);
-  } else {
-    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
-  }
-
-  WiFi.setSleep(false); // 접속 중 모뎀 절전 금지
+  Serial.println("[Wi-Fi] WiFi.begin() 호출...");
+  WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
 
   int attempts = 0;
-  // KT Olleh 공유기 WPA2 인증 및 DHCP IP 할당 대기 (최대 30초)
+  int lastStatus = -1;
   while (WiFi.status() != WL_CONNECTED && attempts < 60) {
     delay(500);
-    Serial.print(".");
+    int curStatus = (int)WiFi.status();
+    if (curStatus != lastStatus) {
+      Serial.printf("\n[Wi-Fi] Status변화: %d ", curStatus);
+      lastStatus = curStatus;
+    } else {
+      Serial.print(".");
+    }
     attempts++;
   }
   Serial.println();
@@ -437,21 +414,9 @@ void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print("[Wi-Fi 성공] 할당받은 IP: ");
     Serial.println(WiFi.localIP());
-
-    // Wi-Fi 성공 후 BLE 스택 재초기화 (deinit 후 복구)
-    Serial.println("[BLE] BLE 스택 재초기화 중...");
-    initBLE();
-    Serial.println("[BLE] BLE 스택 재초기화 완료. BOOT 버튼으로 페어링 가능.");
-
-    // WebSocket 연결 시도
     setupWebSocket(wsUrl);
   } else {
-    Serial.printf("[Wi-Fi 실패] Status 코드: %d\n", (int)WiFi.status());
-    Serial.println("  -> 비밀번호가 맞는지 또는 무선 보안 설정을 확인하세요.");
-
-    // Wi-Fi 실패 시에도 BLE 스택 재초기화
-    Serial.println("[BLE] BLE 스택 재초기화 중...");
-    initBLE();
+    Serial.printf("[Wi-Fi 최종 실패] Status 코드: %d\n", (int)WiFi.status());
   }
 }
 
