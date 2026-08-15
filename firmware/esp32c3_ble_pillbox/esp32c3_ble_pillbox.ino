@@ -90,6 +90,10 @@ class MyServerCallbacks : public BLEServerCallbacks {
   }
 };
 
+// 재부팅 처리 변수 (GATT Write Response 보장)
+bool triggerRebootFlag = false;
+unsigned long rebootStartTime = 0;
+
 class ConfigCharCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
     String value = pCharacteristic->getValue();
@@ -121,10 +125,9 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
           preferences.putString("pass", wifiPass);
           preferences.end();
 
-          // BLE 종료 후 재부팅 → setup()에서 BLE 없이 Wi-Fi 연결
-          Serial.println("[SYSTEM] Wi-Fi 설정 저장 완료. 재부팅하여 Wi-Fi 연결을 시작합니다...");
-          delay(500);
-          esp_restart();
+          Serial.println("[SYSTEM] Wi-Fi 설정 저장 완료. GATT 쓰기 응답 완료 후 1.5초 뒤 재부팅합니다...");
+          triggerRebootFlag = true;
+          rebootStartTime = millis();
         }
       }
       // 3. WS:URL 포맷 수신 (예: WS:ws://192.168.0.10:8000/ws/default_user)
@@ -140,9 +143,9 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
         preferences.putString("wsurl", wsUrl);
         preferences.end();
 
-        Serial.println("[SYSTEM] WebSocket 설정 저장 완료. 재부팅합니다...");
-        delay(500);
-        esp_restart();
+        Serial.println("[SYSTEM] WebSocket 설정 저장 완료. GATT 쓰기 응답 완료 후 1.5초 뒤 재부팅합니다...");
+        triggerRebootFlag = true;
+        rebootStartTime = millis();
       }
       // 4. CLEAR_CONFIG 수신 시 NVS 정보 삭제
       else if (value == "CLEAR_CONFIG") {
@@ -282,6 +285,14 @@ void loop() {
   if (triggerCalibrationFlag) {
     triggerCalibrationFlag = false;
     calibrateZero();
+  }
+
+  // --- F. 지연 재부팅 플래그 처리 (GATT 응답 전송 보장) ---
+  if (triggerRebootFlag && (millis() - rebootStartTime >= 1500)) {
+    triggerRebootFlag = false;
+    Serial.println("\n[SYSTEM] ESP32 재부팅을 시작합니다...");
+    delay(100);
+    esp_restart();
   }
 
   // --- F. 시리얼 입력 처리 ---
