@@ -7,10 +7,10 @@ import { BottleCard } from './features/medication/BottleCard';
 import { MedicationLogList } from './features/medication/MedicationLogList';
 import { AdherenceDashboard } from './features/medication/AdherenceDashboard';
 import { MedicationHistoryTab } from './features/medication/MedicationHistoryTab';
+import { WifiProvisionModal } from './features/medication/WifiProvisionModal';
+import { IconWifi } from '@tabler/icons-react';
 
 const WS_URL = 'ws://localhost:8000/ws/user-1';
-
-type LogTab = 'today' | 'history';
 
 const tabBase: React.CSSProperties = {
   writingMode: 'vertical-rl',
@@ -58,6 +58,7 @@ function App() {
     return hash === 'history' ? 'history' : 'today';
   });
 
+  const [isWifiModalOpen, setIsWifiModalOpen] = useState(false);
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [logs, setLogs] = useState<MedicationLog[]>([]);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
@@ -178,10 +179,24 @@ function App() {
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 p-4" style={{ borderLeft: '1px solid #dee2e6' }}>
-        <div className="flex items-center gap-3 mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">Hands-Free Med Tracker</h1>
-          <Badge color={badge.color} variant="light">{badge.label}</Badge>
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-800">Hands-Free Med Tracker</h1>
+            <Badge color={badge.color} variant="light">{badge.label}</Badge>
+          </div>
+          <button
+            onClick={() => setIsWifiModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/60 text-gray-700 hover:text-indigo-600 font-semibold !text-xs rounded-lg shadow-2xs transition-all cursor-pointer"
+          >
+            <IconWifi size={18} className="text-indigo-600" />
+            <span>기기 Wi-Fi / BLE 설정</span>
+          </button>
         </div>
+
+        <WifiProvisionModal
+          isOpen={isWifiModalOpen}
+          onClose={() => setIsWifiModalOpen(false)}
+        />
 
         {/* 라우트 1 — TODAY 페이지 (`/#today` 또는 기본 경로) */}
         {currentPage === 'today' && (
