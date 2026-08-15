@@ -373,28 +373,30 @@ void connectWiFi() {
   Serial.print("[Wi-Fi] Password 길이: ");
   Serial.println(wifiPass.length());
 
-  // 1. BLE 라디오 간섭 방지를 위해 광고 일시 중단 (ESP32-C3 RF 자원 확보)
-  bool wasAdv = isAdvertising;
+  // 1. BLE 라디오 방해 제거 (활성 BLE 연결 및 광고 세션 정리하여 2.4GHz RF 100% 전용 할당)
+  if (deviceConnected) {
+    Serial.println("[BLE] Wi-Fi WPA2 핸드셰이크를 위해 활성 BLE 연결 세션을 안전하게 정리합니다.");
+    pServer->disconnect(0);
+    delay(300);
+  }
   if (isAdvertising) {
     BLEDevice::stopAdvertising();
     delay(100);
   }
 
-  // 2. Wi-Fi STA 모드 리셋 & Modem Sleep 전력 절전 해제 (WPA2 핸드셰이크 패킷
-  // 누락 방지)
+  // 2. Wi-Fi STA 모드 리셋 & Modem Sleep 절전 해제 (WPA2 4-Way Handshake 패킷 드롭 방지)
   WiFi.disconnect(true);
   delay(200);
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false); // ★ Modem Sleep 해제 (WPA2 핸드셰이크 드롭 방지)
+  WiFi.setSleep(false);
   esp_wifi_set_ps(WIFI_PS_NONE);
   delay(200);
 
-  // 3. 2.4GHz AP 스캔 수행 (최상 신호 BSSID & 채널 확정)
+  // 3. 주변 2.4GHz AP 스캔 수행
   Serial.println("[Wi-Fi] 주변 2.4GHz AP 스캔 중...");
   int n = WiFi.scanNetworks(false, true);
   int targetChannel = 0;
   int bestRSSI = -100;
-  uint8_t targetBSSID[6];
   bool foundTarget = false;
 
   if (n > 0) {
@@ -406,33 +408,24 @@ void connectWiFi() {
       if (foundSSID == wifiSSID && rssi > bestRSSI) {
         bestRSSI = rssi;
         targetChannel = WiFi.channel(i);
-        uint8_t *bssid = WiFi.BSSID(i);
-        memcpy(targetBSSID, bssid, 6);
         foundTarget = true;
       }
     }
   }
 
   if (foundTarget) {
-    Serial.printf("  ===> 타깃 AP [%s] 타격 선택! (신호: %d dBm, 채널: %d, "
-                  "BSSID: %02X:%02X:%02X:%02X:%02X:%02X)\n",
-                  wifiSSID.c_str(), bestRSSI, targetChannel, targetBSSID[0],
-                  targetBSSID[1], targetBSSID[2], targetBSSID[3],
-                  targetBSSID[4], targetBSSID[5]);
+    Serial.printf("  ===> 타깃 AP [%s] 발견! (신호: %d dBm, 채널: %d)\n",
+                  wifiSSID.c_str(), bestRSSI, targetChannel);
   }
 
   WiFi.scanDelete();
 
-  // 4. Wi-Fi 접속 시도 (BSSID 및 채널 바인딩 WPA2 핸드셰이크)
+  // 4. Wi-Fi 접속 시도 (표준 WPA2 핸드셰이크)
   Serial.println("[Wi-Fi] WPA2 4-Way Handshake 접속 시도 중...");
-  if (foundTarget) {
-    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str(), targetChannel, targetBSSID);
-  } else {
-    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
-  }
+  WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 40) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");
     attempts++;
@@ -448,11 +441,6 @@ void connectWiFi() {
   } else {
     Serial.printf("[Wi-Fi 실패] Status 코드: %d\n", (int)WiFi.status());
     Serial.println("  -> 비밀번호가 맞는지 또는 무선 보안 설정을 확인하세요.");
-  }
-
-  // BLE 광고 상태 복구
-  if (wasAdv && !deviceConnected) {
-    BLEDevice::startAdvertising();
   }
 }
 
