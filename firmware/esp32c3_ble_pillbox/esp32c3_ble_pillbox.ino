@@ -17,11 +17,10 @@ const int SDA_PIN = 8;
 const int SCL_PIN = 9;
 const int BUTTON_PIN = 9; // BOOT 버튼 (Low Active)
 
-const uint8_t bmi160_i2c_addr = 0x69;            // DFRobot 기본 주소
+const uint8_t bmi160_i2c_addr = 0x69;            // DFRobot 기본 I2C 주소
 const unsigned long BUTTON_LONG_PRESS_MS = 3000; // 3초 페어링 버튼 롱프레스
-const unsigned long BLE_ADV_TIMEOUT_MS =
-    180000; // 3분(180초) BLE Advertising 타임아웃
-const unsigned long STREAM_INTERVAL_MS = 50; // 20Hz (50ms) 주기 센서 스트리밍
+const unsigned long BLE_ADV_TIMEOUT_MS = 180000; // 3분(180초) BLE Advertising 타임아웃
+const unsigned long STREAM_INTERVAL_MS = 50;     // 20Hz (50ms) 주기 센서 스트리밍
 
 // ==========================================
 // 2. BLE UUID 정의 (GATT Profile)
@@ -60,8 +59,6 @@ String wifiSSID = "";
 String wifiPass = "";
 String wsUrl = "ws://192.168.0.10:8000/ws/default_user";
 bool wsConnected = false;
-bool triggerWifiConnectFlag = false;
-bool triggerWsSetupFlag = false;
 
 // 버튼 및 상태 처리 변수
 unsigned long buttonPressStartTime = 0;
@@ -84,12 +81,12 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length);
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
     deviceConnected = true;
-    Serial.println("[BLE] 앱 연결 성공 (Client Connected)");
+    Serial.println("[BLE] 클라이언트 연결 성공 (Connected)");
   };
 
   void onDisconnect(BLEServer *pServer) override {
     deviceConnected = false;
-    Serial.println("[BLE] 앱 연결 해제 (Client Disconnected)");
+    Serial.println("[BLE] 클라이언트 연결 해제 (Disconnected)");
   }
 };
 
@@ -114,11 +111,9 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
           wifiPass = payload.substring(commaIdx + 1);
           wifiSSID.trim();
           wifiPass.trim();
-          Serial.print("[BLE] Wi-Fi SSID: [");
+          Serial.print("[BLE] Wi-Fi SSID 설정: [");
           Serial.print(wifiSSID);
           Serial.println("]");
-          Serial.print("[BLE] Wi-Fi Pass 길이: ");
-          Serial.println(wifiPass.length());
 
           // NVS에 저장
           preferences.begin("pillbox", false);
@@ -126,9 +121,8 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
           preferences.putString("pass", wifiPass);
           preferences.end();
 
-          // BLE 종료 후 재부팅 → setup()에서 BLE 없이 Wi-Fi 먼저 연결
-          Serial.println("[SYSTEM] Wi-Fi 설정 저장 완료. 재부팅하여 BLE 없이 "
-                         "Wi-Fi 연결합니다...");
+          // BLE 종료 후 재부팅 → setup()에서 BLE 없이 Wi-Fi 연결
+          Serial.println("[SYSTEM] Wi-Fi 설정 저장 완료. 재부팅하여 Wi-Fi 연결을 시작합니다...");
           delay(500);
           esp_restart();
         }
@@ -137,7 +131,7 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
       else if (value.startsWith("WS:")) {
         wsUrl = value.substring(3);
         wsUrl.trim();
-        Serial.print("[BLE] WebSocket URL: [");
+        Serial.print("[BLE] WebSocket URL 설정: [");
         Serial.print(wsUrl);
         Serial.println("]");
 
@@ -170,12 +164,11 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
 // ==========================================
 void setup() {
   Serial.begin(115200);
-  while (!Serial && millis() < 4000)
-    ;
+  while (!Serial && millis() < 4000);
   delay(500);
 
   Serial.println("\n=============================================");
-  Serial.println(" ESP32-C3 Smart PillBox Firmware (Phase 2)");
+  Serial.println(" ESP32-C3 Smart PillBox Firmware");
   Serial.println(" (BLE + Wi-Fi Provisioning + WebSocket 20Hz)");
   Serial.println("=============================================");
   Serial.flush();
@@ -187,8 +180,8 @@ void setup() {
   uint8_t mac[6];
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
   char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0],
-           mac[1], mac[2], mac[3], mac[4], mac[5]);
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X", 
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   deviceMacAddress = String(macStr);
 
   char nameBuf[30];
@@ -204,8 +197,7 @@ void setup() {
   preferences.begin("pillbox", true);
   wifiSSID = preferences.getString("ssid", "");
   wifiPass = preferences.getString("pass", "");
-  wsUrl =
-      preferences.getString("wsurl", "ws://172.30.1.89:8000/ws/default_user");
+  wsUrl = preferences.getString("wsurl", wsUrl.c_str());
   preferences.end();
 
   // 4. I2C 및 BMI160 센서 초기화 (GPIO 8=SDA, GPIO 9=SCL)
@@ -221,7 +213,7 @@ void setup() {
     calibrateZero();
   }
 
-  // 5. Wi-Fi 먼저 연결 (BLE 스택 초기화 전 → RF 충돌 원천 차단)
+  // 5. Wi-Fi 연결 (BLE 스택 초기화 전 → RF 충돌 방지)
   if (wifiSSID.length() > 0) {
     Serial.print("[NVS] 저장된 Wi-Fi 정보 발견: ");
     Serial.println(wifiSSID);
@@ -230,13 +222,11 @@ void setup() {
     Serial.println("[NVS] 저장된 Wi-Fi 정보 없음 (BLE 프로비저닝 대기)");
   }
 
-  // 6. BLE 스택 초기화 (Wi-Fi 연결 완료 후)
+  // 6. BLE 스택 초기화
   initBLE();
 
-  Serial.println("\n[안내] BOOT 버튼(GPIO 9)을 3초간 누르면 BLE 페어링 "
-                 "모드(Advertising)가 시작됩니다.");
-  Serial.println("[안내] BLE Config로 'WIFI:SSID,PASS' 또는 "
-                 "'WS:ws://IP:PORT/ws/user'를 전송하세요.\n");
+  Serial.println("\n[안내] BOOT 버튼(GPIO 9)을 3초간 누르면 BLE 페어링 모드(Advertising)가 시작됩니다.");
+  Serial.println("[안내] BLE Config로 'WIFI:SSID,PASS' 또는 'WS:ws://IP:PORT/ws/user'를 전송하세요.\n");
 }
 
 // ==========================================
@@ -251,17 +241,14 @@ void loop() {
       buttonPressStartTime = millis();
     } else {
       unsigned long pressDuration = millis() - buttonPressStartTime;
-      if (pressDuration >= BUTTON_LONG_PRESS_MS && !isAdvertising &&
-          !deviceConnected) {
-        Serial.println(
-            "\n[EVENT] 버튼 3초 롱프레스 감지! BLE 페어링 모드 시작.");
+      if (pressDuration >= BUTTON_LONG_PRESS_MS && !isAdvertising && !deviceConnected) {
+        Serial.println("\n[EVENT] 버튼 3초 롱프레스 감지! BLE 페어링 모드 시작.");
         startBLEAdvertising();
       }
     }
   } else {
     if (buttonIsPressed) {
       buttonIsPressed = false;
-      Wire.begin(SDA_PIN, SCL_PIN);
     }
   }
 
@@ -284,28 +271,18 @@ void loop() {
     oldDeviceConnected = deviceConnected;
   }
 
-  // --- D. Wi-Fi 및 WebSocket 연결 요청 처리 ---
-  if (triggerWifiConnectFlag) {
-    triggerWifiConnectFlag = false;
-    connectWiFi();
-  }
-  if (triggerWsSetupFlag) {
-    triggerWsSetupFlag = false;
-    setupWebSocket(wsUrl);
-  }
-
-  // --- E. WebSocket 클라이언트 이벤트 처리 ---
+  // --- D. WebSocket 클라이언트 이벤트 처리 ---
   if (WiFi.status() == WL_CONNECTED) {
     webSocket.loop();
   }
 
-  // --- F. 영점 조절 플래그 처리 ---
+  // --- E. 영점 조절 플래그 처리 ---
   if (triggerCalibrationFlag) {
     triggerCalibrationFlag = false;
     calibrateZero();
   }
 
-  // --- G. 시리얼 입력 처리 ---
+  // --- F. 시리얼 입력 처리 ---
   if (Serial.available() > 0) {
     char cmd = Serial.read();
     if (cmd == 't' || cmd == 'T' || cmd == 'r' || cmd == 'R') {
@@ -313,7 +290,7 @@ void loop() {
     }
   }
 
-  // --- H. 20Hz (50ms) 주기 센서 읽기 및 백엔드 WebSocket 실시간 스트리밍 ---
+  // --- G. 20Hz (50ms) 주기 센서 읽기 및 백엔드 WebSocket 실시간 스트리밍 ---
   static unsigned long lastStreamTime = 0;
   if (millis() - lastStreamTime >= STREAM_INTERVAL_MS) {
     lastStreamTime = millis();
@@ -342,18 +319,15 @@ void loop() {
         // 백엔드 파이프라인 호환 JSON 생성 (6축 정밀 데이터)
         char payload[256];
         snprintf(payload, sizeof(payload),
-                 "{\"bottle_id\":\"%s\",\"acc_x\":%.3f,\"acc_y\":%.3f,\"acc_"
-                 "z\":%.3f,\"gyro_x\":%.3f,\"gyro_y\":%.3f,\"gyro_z\":%.3f}",
-                 deviceName.c_str(), phys_ax, phys_ay, phys_az, phys_gx,
-                 phys_gy, phys_gz);
+                 "{\"bottle_id\":\"%s\",\"acc_x\":%.3f,\"acc_y\":%.3f,\"acc_z\":%.3f,\"gyro_x\":%.3f,\"gyro_y\":%.3f,\"gyro_z\":%.3f}",
+                 deviceName.c_str(), phys_ax, phys_ay, phys_az, phys_gx, phys_gy, phys_gz);
 
         // 1. WebSocket 서버로 백엔드 파이프라인 센서 데이터 송신 (20Hz)
         if (wsConnected) {
           webSocket.sendTXT(payload);
         }
 
-        // 2. BLE Connected 상태인 경우 BLE Status Notify 전송 (CALIBRATION_OK
-        // 대기 보호)
+        // 2. BLE Connected 상태인 경우 BLE Status Notify 전송
         if (deviceConnected && (millis() - lastCalibrationNotifyTime > 2500)) {
           pStatusCharacteristic->setValue(payload);
           pStatusCharacteristic->notify();
@@ -375,14 +349,6 @@ void connectWiFi() {
     return;
 
   Serial.println("\n[Wi-Fi] 접속 시도... Target: [" + wifiSSID + "]");
-  Serial.print("[Wi-Fi] Pass 길이: "); Serial.println(wifiPass.length());
-
-  // NVS 비밀번호 HEX 검증
-  Serial.print("[Wi-Fi] Pass HEX: ");
-  for (int i = 0; i < (int)wifiPass.length(); i++) {
-    Serial.printf("%02X(%c) ", (uint8_t)wifiPass[i], wifiPass[i]);
-  }
-  Serial.println();
 
   // Wi-Fi 드라이버 완전 클린 재초기화
   WiFi.persistent(false);   // NVS에 자격증명 저장 안 함 (내부 캐시 오염 방지)
@@ -442,8 +408,7 @@ void setupWebSocket(String url) {
   String host = (colonIdx >= 0) ? hostPort.substring(0, colonIdx) : hostPort;
   int port = (colonIdx >= 0) ? hostPort.substring(colonIdx + 1).toInt() : 80;
 
-  Serial.println("\n[WebSocket 설정] Host: " + host +
-                 ", Port: " + String(port) + ", Path: " + path);
+  Serial.println("\n[WebSocket 설정] Host: " + host + ", Port: " + String(port) + ", Path: " + path);
   webSocket.begin(host.c_str(), port, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
@@ -550,7 +515,7 @@ void startBLEAdvertising() {
   BLEDevice::startAdvertising();
   isAdvertising = true;
   advStartTime = millis();
-  Serial.print("[BLE] Advertising 시작 중... 디바이스명: ");
+  Serial.print("[BLE] Advertising 시작... 디바이스명: ");
   Serial.println(deviceName);
 }
 
