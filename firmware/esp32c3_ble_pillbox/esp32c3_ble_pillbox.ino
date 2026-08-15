@@ -420,12 +420,19 @@ void connectWiFi() {
 
   WiFi.scanDelete();
 
-  // 4. Wi-Fi 접속 시도 (표준 WPA2 핸드셰이크)
+  // 4. Wi-Fi 접속 시도 (타깃 채널 1번 바인딩 및 WPA2 핸드셰이크)
   Serial.println("[Wi-Fi] WPA2 4-Way Handshake 접속 시도 중...");
-  WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
+  if (foundTarget && targetChannel > 0) {
+    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str(), targetChannel);
+  } else {
+    WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
+  }
+
+  WiFi.setSleep(false); // 접속 중 모뎀 절전 금지
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  // KT Olleh 공유기 WPA2 인증 및 DHCP IP 할당 대기 (최대 30초)
+  while (WiFi.status() != WL_CONNECTED && attempts < 60) {
     delay(500);
     Serial.print(".");
     attempts++;
