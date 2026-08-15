@@ -19,10 +19,22 @@ interface WifiProvisionModalProps {
 }
 
 export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({ isOpen, onClose }) => {
-  const [ssid, setSsid] = useState('');
+  const [ssid, setSsid] = useState(() => {
+    try {
+      return localStorage.getItem('last_wifi_ssid') || '';
+    } catch (_) {
+      return '';
+    }
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [wsUrl, setWsUrl] = useState('ws://192.168.0.10:8000/ws/default_user');
+  const [wsUrl, setWsUrl] = useState(() => {
+    try {
+      return localStorage.getItem('last_ws_url') || 'ws://192.168.0.10:8000/ws/default_user';
+    } catch (_) {
+      return 'ws://192.168.0.10:8000/ws/default_user';
+    }
+  });
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const {

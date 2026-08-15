@@ -17,6 +17,8 @@ export interface UseWebBluetoothReturn {
   resetStatus: () => void;
 }
 
+const CONNECT_TIMEOUT_MS = 10000; // 10초 타임아웃
+
 export function useWebBluetooth(): UseWebBluetoothReturn {
   const isSupported = typeof window !== 'undefined' && 'bluetooth' in navigator;
   const [status, setStatus] = useState<BLEStatus>('idle');
@@ -36,21 +38,48 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       return false;
     }
 
+    let device: any = null;
+
     try {
       setStatus('scanning');
       setStatusMessage('주변 ESP32 약통 기기(SmartPillBox)를 탐색 중입니다...');
       setError(null);
 
       const navBt = (navigator as any).bluetooth;
-      const device = await navBt.requestDevice({
-        filters: [{ namePrefix: 'SmartPillBox' }],
-        optionalServices: [BLE_SERVICE_UUID],
-      });
+      
+      // SmartPillBox 디바이스 필터링 검색 (필터 실패 시 acceptAllDevices 2차 폴백)
+      try {
+        device = await navBt.requestDevice({
+          filters: [
+            { namePrefix: 'SmartPillBox' },
+            { namePrefix: 'Smart' },
+            { namePrefix: 'ESP32' }
+          ],
+          optionalServices: [BLE_SERVICE_UUID],
+        });
+      } catch (filterErr: any) {
+        if (filterErr.name === 'NotFoundError') {
+          throw filterErr;
+        }
+        console.warn('[WebBluetooth] 필터 탐색 실패, 전체 기기 검색 모드로 재시도:', filterErr);
+        device = await navBt.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [BLE_SERVICE_UUID],
+        });
+      }
 
       setStatus('connecting');
       setStatusMessage(`[${device.name || 'SmartPillBox'}] 기기에 BLE 연결을 시도합니다...`);
 
-      const server = await device.gatt.connect();
+      // 10초 타임아웃 프로미스 생성
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('BLE 연결 시간 초과 (10초). 기기의 페어링 모드를 확인해 주세요.')), CONNECT_TIMEOUT_MS);
+      });
+
+      const server: any = await Promise.race([
+        device.gatt.connect(),
+        timeoutPromise
+      ]);
 
       setStatusMessage('GATT 서비스 정보를 읽어오는 중...');
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
@@ -67,15 +96,21 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       setStatus('success');
       setStatusMessage('설정이 성공적으로 전송되었습니다! ESP32 기기가 새로운 설정으로 재부팅됩니다.');
 
+      // 1.5초 후 명시적 연결 해제
       setTimeout(() => {
-        if (device.gatt && device.gatt.connected) {
+        if (device && device.gatt && device.gatt.connected) {
           device.gatt.disconnect();
         }
-      }, 1000);
+      }, 1500);
 
       return true;
     } catch (err: any) {
       console.error('[WebBluetooth Error]', err);
+      
+      if (device && device.gatt && device.gatt.connected) {
+        try { device.gatt.disconnect(); } catch (_) {}
+      }
+
       if (err.name === 'NotFoundError') {
         setStatus('idle');
         setStatusMessage('기기 선택이 취소되었습니다.');
@@ -97,6 +132,12 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       setStatus('error');
       return false;
     }
+
+    // 성공적인 로컬 전송 전 로컬스토리지에 최근 SSID 저장
+    try {
+      localStorage.setItem('last_wifi_ssid', cleanSsid);
+    } catch (_) {}
+
     const payload = `WIFI:${cleanSsid},${cleanPass}`;
     return sendPayloadToChar(payload);
   }, [sendPayloadToChar]);
@@ -108,6 +149,11 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       setStatus('error');
       return false;
     }
+
+    try {
+      localStorage.setItem('last_ws_url', cleanUrl);
+    } catch (_) {}
+
     const payload = `WS:${cleanUrl}`;
     return sendPayloadToChar(payload);
   }, [sendPayloadToChar]);
