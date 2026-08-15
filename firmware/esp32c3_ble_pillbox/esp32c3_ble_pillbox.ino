@@ -373,16 +373,11 @@ void connectWiFi() {
   Serial.print("[Wi-Fi] Password 길이: ");
   Serial.println(wifiPass.length());
 
-  // 1. BLE 라디오 방해 제거 (활성 BLE 연결 및 광고 세션 정리하여 2.4GHz RF 100% 전용 할당)
-  if (deviceConnected) {
-    Serial.println("[BLE] Wi-Fi WPA2 핸드셰이크를 위해 활성 BLE 연결 세션을 안전하게 정리합니다.");
-    pServer->disconnect(0);
-    delay(300);
-  }
-  if (isAdvertising) {
-    BLEDevice::stopAdvertising();
-    delay(100);
-  }
+  // 1. BLE 라디오 완전 해제 (항상 실행 - BLE Connected / NVS 부팅 경로 모두 포함)
+  BLEDevice::deinit(true);
+  deviceConnected = false;
+  isAdvertising = false;
+  delay(500);
 
   // 2. Wi-Fi STA 모드 리셋 & Modem Sleep 절전 해제 (WPA2 4-Way Handshake 패킷 드롭 방지)
   WiFi.disconnect(true);
