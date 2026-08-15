@@ -339,12 +339,20 @@ void loop() {
 void connectWiFi() {
   if (wifiSSID.length() == 0) return;
 
-  Serial.println("\n[Wi-Fi] 연결 시도 중... SSID: " + wifiSSID);
+  Serial.println("\n[Wi-Fi] 기존 연결 초기화 및 접속 시도 중... SSID: " + wifiSSID);
+
+  // 이전 접속 시도 세션 깔끔히 정리 (wifi:sta is connecting 에러 방지)
+  WiFi.disconnect(true);
+  delay(200);
+  WiFi.mode(WIFI_OFF);
+  delay(100);
   WiFi.mode(WIFI_STA);
+  delay(100);
+
   WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");
     attempts++;
