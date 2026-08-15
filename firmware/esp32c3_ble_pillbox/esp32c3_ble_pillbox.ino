@@ -438,11 +438,20 @@ void connectWiFi() {
     Serial.print("[Wi-Fi 성공] 할당받은 IP: ");
     Serial.println(WiFi.localIP());
 
-    // Wi-Fi 성공 후 WebSocket 연결 시도
+    // Wi-Fi 성공 후 BLE 스택 재초기화 (deinit 후 복구)
+    Serial.println("[BLE] BLE 스택 재초기화 중...");
+    initBLE();
+    Serial.println("[BLE] BLE 스택 재초기화 완료. BOOT 버튼으로 페어링 가능.");
+
+    // WebSocket 연결 시도
     setupWebSocket(wsUrl);
   } else {
     Serial.printf("[Wi-Fi 실패] Status 코드: %d\n", (int)WiFi.status());
     Serial.println("  -> 비밀번호가 맞는지 또는 무선 보안 설정을 확인하세요.");
+
+    // Wi-Fi 실패 시에도 BLE 스택 재초기화
+    Serial.println("[BLE] BLE 스택 재초기화 중...");
+    initBLE();
   }
 }
 
