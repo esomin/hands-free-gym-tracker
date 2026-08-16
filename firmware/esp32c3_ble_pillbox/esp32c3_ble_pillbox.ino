@@ -94,21 +94,10 @@ class MyServerCallbacks : public BLEServerCallbacks {
 bool triggerRebootFlag = false;
 unsigned long rebootStartTime = 0;
 
-// 헬퍼: 문자열을 16진수 바이트로 시리얼 출력
-void printHex(const String& s, const char* label) {
-  Serial.printf("[HEX:%s] len=%d bytes: ", label, s.length());
-  for (size_t i = 0; i < s.length(); i++) {
-    Serial.printf("%02X ", (uint8_t)s[i]);
-  }
-  Serial.println();
-}
-
 class ConfigCharCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) override {
     String value = pCharacteristic->getValue();
     if (value.length() > 0) {
-      Serial.printf("[BLE 수신] 총 %d 바이트 수신.\n", value.length());
-      printHex(value, "RAW_PAYLOAD");  // ★ 원본 바이트 덤프
       Serial.print("[BLE 수신] Config 설정: ");
       Serial.println(value);
 
@@ -120,37 +109,20 @@ class ConfigCharCallbacks : public BLECharacteristicCallbacks {
       // 2. WIFI:SSID,PASSWORD 포맷 수신
       else if (value.startsWith("WIFI:")) {
         String payload = value.substring(5);
-        Serial.printf("[PARSE] WIFI: 프리픽스 제거 후 payload len=%d\n", payload.length());
-        printHex(payload, "WIFI_PAYLOAD");  // ★ WIFI: 이후 바이트 덤프
-
         int commaIdx = payload.indexOf(',');
-        Serial.printf("[PARSE] 첫 번째 쉼표(,) 위치: %d\n", commaIdx);  // ★ 쉼표 위치
-
         if (commaIdx > 0) {
           wifiSSID = payload.substring(0, commaIdx);
           wifiPass = payload.substring(commaIdx + 1);
           wifiSSID.trim();
           wifiPass.trim();
 
-          Serial.printf("[PARSE] SSID 파싱 결과: [%s] len=%d\n", wifiSSID.c_str(), wifiSSID.length());
-          printHex(wifiSSID, "SSID");       // ★ SSID 바이트 덤프
-          Serial.printf("[PARSE] PASS 파싱 결과: len=%d (비밀번호는 숨김)\n", wifiPass.length());
-          printHex(wifiPass, "PASS");       // ★ 비밀번호 바이트 덤프
+          Serial.printf("[BLE] Wi-Fi SSID 설정: [%s]\n", wifiSSID.c_str());
 
           // NVS에 저장
           preferences.begin("pillbox", false);
           preferences.putString("ssid", wifiSSID);
           preferences.putString("pass", wifiPass);
           preferences.end();
-
-          // ★ NVS 저장값 즉시 읽어서 검증
-          preferences.begin("pillbox", true);
-          String nvsSsid = preferences.getString("ssid", "");
-          String nvsPass = preferences.getString("pass", "");
-          preferences.end();
-          Serial.printf("[NVS 검증] 저장된 SSID: [%s] len=%d\n", nvsSsid.c_str(), nvsSsid.length());
-          Serial.printf("[NVS 검증] 저장된 PASS len=%d (일치: %s)\n",
-                        nvsPass.length(), (nvsPass == wifiPass) ? "OK" : "MISMATCH!");
 
           Serial.println("[SYSTEM] Wi-Fi 설정 저장 완료. GATT 쓰기 응답 완료 후 1.5초 뒤 재부팅합니다...");
           triggerRebootFlag = true;
@@ -230,12 +202,7 @@ void setup() {
   wsUrl = preferences.getString("wsurl", wsUrl.c_str());
   preferences.end();
 
-  // ★ NVS 로드 직후 검증 로그
-  Serial.printf("[NVS Load] SSID len=%d, PASS len=%d\n", wifiSSID.length(), wifiPass.length());
-  printHex(wifiSSID, "NVS_SSID");  // ★ 부팅 시 NVS에서 읽은 SSID 바이트 확인
-  printHex(wifiPass, "NVS_PASS");  // ★ 부팅 시 NVS에서 읽은 PASS 바이트 확인
-
-  // 4. I2C 및 BMI160 센서 초기화 (GPIO 8=SDA, GPIO 9=SCL)
+  // 4. I2C 및 BMI160 센서 초기화 (GPIO 8=SDA, GPIO 6=SCL)
   Wire.begin(SDA_PIN, SCL_PIN);
   if (bmi160.softReset() != BMI160_OK) {
     Serial.println("[WARN] BMI160 소프트 리셋 실패");
@@ -407,90 +374,44 @@ void connectWiFi() {
   if (wifiSSID.length() == 0)
     return;
 
-  // ★ WiFi.begin() 호출 전 실제 전달되는 값 최종 확인
-  Serial.printf("\n[Wi-Fi] ========== WiFi 연결 시도 ==========");
-  Serial.printf("\n[Wi-Fi] SSID: [%s] (len=%d)\n", wifiSSID.c_str(), wifiSSID.length());
-  Serial.printf("[Wi-Fi] PASS len=%d\n", wifiPass.length());
-  printHex(wifiSSID, "CONNECT_SSID");  // ★ WiFi.begin에 넘기는 SSID 바이트
-  printHex(wifiPass, "CONNECT_PASS");  // ★ WiFi.begin에 넘기는 PASS 바이트
+  Serial.printf("\n[Wi-Fi] 접속 시도... Target: [%s]\n", wifiSSID.c_str());
 
   // Wi-Fi 드라이버 완전 클린 재초기화
   WiFi.persistent(false);   // NVS에 자격증명 저장 안 함 (내부 캐시 오염 방지)
   WiFi.mode(WIFI_OFF);      // 완전 종료
   delay(300);
   WiFi.mode(WIFI_STA);      // STA 모드 재시작
-  WiFi.setTxPower(WIFI_POWER_8_5dBm); // ★ 출력 낮춤: Super Mini LDO 과부하 방지 (19.5→8.5dBm)
+  WiFi.setTxPower(WIFI_POWER_8_5dBm); // Super Mini LDO 과부하 방지 (8.5dBm)
   WiFi.setSleep(false);
   delay(300);
 
-  // ★ 재시도 스캔: iPhone 핫스팟 절전 해제 대기 (최대 2회, 2초 간격)
-  // BLE 초기화 지연 최소화를 위해 재시도 횟수 축소
+  // iPhone 핫스팟 등 절전 대기 AP 재시도 스캔 (최대 2회)
   bool ssidFound = false;
-  uint8_t targetBSSID[6] = {0};
-  int32_t targetChannel = 0;
 
   for (int scanTry = 1; scanTry <= 2 && !ssidFound; scanTry++) {
-    Serial.printf("[Wi-Fi] AP 스캔 시도 %d/5...\n", scanTry);
     int n = WiFi.scanNetworks();
     for (int i = 0; i < n; i++) {
-      String scanned = WiFi.SSID(i);
-      int32_t rssi = WiFi.RSSI(i);
-      int32_t ch = WiFi.channel(i);
-      wifi_auth_mode_t enc = WiFi.encryptionType(i);
-
-      // 암호화 타입 문자열 변환
-      const char* encStr = "UNKNOWN";
-      switch (enc) {
-        case WIFI_AUTH_OPEN:        encStr = "OPEN";    break;
-        case WIFI_AUTH_WEP:         encStr = "WEP";     break;
-        case WIFI_AUTH_WPA_PSK:     encStr = "WPA";     break;
-        case WIFI_AUTH_WPA2_PSK:    encStr = "WPA2";    break;
-        case WIFI_AUTH_WPA_WPA2_PSK:encStr = "WPA/2";  break;
-        case WIFI_AUTH_WPA3_PSK:    encStr = "WPA3";    break;  // ★ WPA3이면 연결 실패 원인
-        case WIFI_AUTH_WPA2_WPA3_PSK: encStr = "WPA2/3"; break;
-        default: break;
-      }
-
-      Serial.printf("  [Scan %d] SSID=[%s] RSSI=%d Ch=%d Enc=%s\n",
-                    i, scanned.c_str(), rssi, ch, encStr);
-
-      if (scanned == wifiSSID) {
+      if (WiFi.SSID(i) == wifiSSID) {
         ssidFound = true;
-        targetChannel = ch;
-        uint8_t* bssid = WiFi.BSSID(i);
-        memcpy(targetBSSID, bssid, 6);
-        Serial.printf("  [★ MATCH] 목표 SSID 발견! RSSI=%d dBm, Ch=%d, Enc=%s\n", rssi, ch, encStr);
-        Serial.printf("  [★ BSSID] %02X:%02X:%02X:%02X:%02X:%02X\n",
-                      targetBSSID[0], targetBSSID[1], targetBSSID[2],
-                      targetBSSID[3], targetBSSID[4], targetBSSID[5]);
-
-        if (enc == WIFI_AUTH_WPA3_PSK || enc == WIFI_AUTH_WPA2_WPA3_PSK) {
-          Serial.println("  [★ 경고] WPA3 암호화 감지! ESP32-C3 WPA3 연결 시도. 실패 시 iPhone '호환성 최대화' 재확인.");
-        }
+        Serial.printf("[Wi-Fi] 목표 SSID 발견! [%s] (RSSI: %d dBm)\n", wifiSSID.c_str(), WiFi.RSSI(i));
+        break;
       }
     }
     WiFi.scanDelete();
 
-    if (!ssidFound) {
-      if (scanTry < 2) {
-        Serial.printf("[Wi-Fi] SSID 미발견. 2초 후 재스캔... (iPhone 핫스팟 설정 화면을 열어두세요)\n");
-        delay(2000);  // 3초→2초 단축
-      } else {
-        Serial.println("[Wi-Fi ★경고] 2회 스캔 모두 실패. WiFi.begin() 강행...");
-      }
+    if (!ssidFound && scanTry < 2) {
+      delay(2000);
     }
   }
 
-  // iPhone은 핫스팟 BSSID를 MAC Randomization으로 변경하므로 BSSID 지정 없이 연결
-  // (BSSID 고정 시 스캔 BSSID ≠ 연결 BSSID → Status 6 무한 대기 발생)
-  delay(500); // scanDelete 후 WiFi 스택 안정화 대기
+  delay(300);
 
-  // ★ WiFi.begin() 재시도 (최대 2회) — BLE 시작 지연 최소화
+  // WiFi.begin() 연결 시도 (최대 2회)
   for (int connTry = 1; connTry <= 2; connTry++) {
     WiFi.disconnect(false);
     delay(300);
 
-    Serial.printf("[Wi-Fi] WiFi.begin() SSID+PW 연결 (시도 %d/2)...\n", connTry);
+    Serial.printf("[Wi-Fi] WiFi.begin() 연결 시도 (%d/2)...\n", connTry);
     WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
 
     int attempts = 0;
@@ -499,7 +420,7 @@ void connectWiFi() {
       delay(500);
       int curStatus = (int)WiFi.status();
       if (curStatus != lastStatus) {
-        Serial.printf("\n[Wi-Fi] Status변화: %s ", wifiStatusToStr(curStatus));
+        Serial.printf("\n[Wi-Fi] Status: %s ", wifiStatusToStr(curStatus));
         lastStatus = curStatus;
       } else {
         Serial.print(".");
@@ -517,7 +438,6 @@ void connectWiFi() {
 
     Serial.printf("[Wi-Fi 시도 %d 실패] %s\n", connTry, wifiStatusToStr((int)WiFi.status()));
     if (connTry < 2) {
-      Serial.println("[Wi-Fi] 2초 후 재시도...");
       WiFi.disconnect(true);
       delay(2000);
     }
