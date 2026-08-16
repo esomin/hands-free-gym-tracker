@@ -33,7 +33,7 @@ echo -e "${CYAN}[backend] uvicorn 시작...${RESET}"
 (
   cd "$ROOT/backend"
   source venv/bin/activate
-  uvicorn main:app --reload --port 8000
+  uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ) &
 PIDS+=($!)
 echo -e "${GREEN}[backend] PID $! (port 8000)${RESET}"

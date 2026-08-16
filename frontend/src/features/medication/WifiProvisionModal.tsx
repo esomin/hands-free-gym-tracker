@@ -30,9 +30,9 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({ isOpen, 
   const [showPassword, setShowPassword] = useState(false);
   const [wsUrl, setWsUrl] = useState(() => {
     try {
-      return localStorage.getItem('last_ws_url') || 'ws://192.168.0.10:8000/ws/default_user';
+      return localStorage.getItem('last_ws_url') || 'ws://172.30.1.28:8000/ws/user-1';
     } catch (_) {
-      return 'ws://192.168.0.10:8000/ws/default_user';
+      return 'ws://172.30.1.28:8000/ws/user-1';
     }
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
