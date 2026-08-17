@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
 from bson import ObjectId
@@ -37,6 +37,48 @@ class AdherenceStatsResponse(BaseModel):
 def _serialize(doc: dict) -> dict:
     doc['id'] = str(doc.pop('_id'))
     return doc
+
+
+def calculate_streak(logs: list[dict]) -> int:
+    """
+    연속 복용 달성 일수 (Streak) 알고리즘:
+    - 복용 기록이 발생한 유일 날짜(Date)들의 집합(set) 생성.
+    - 오늘(Today) 또는 어제(Yesterday)를 기준으로 시작하여 하루도 끊김 없이 연속으로 복용한 날짜 수를 카운트.
+    - 오늘과 어제 모두 복용 기록이 없으면(하루 이상 거름) 연속 달성 일수는 0일.
+    """
+    if not logs:
+        return 0
+
+    unique_dates = set()
+    for log in logs:
+        taken_at_str = log.get("taken_at")
+        if taken_at_str:
+            try:
+                dt = datetime.fromisoformat(taken_at_str.replace("Z", "+00:00"))
+                unique_dates.add(dt.date())
+            except Exception:
+                pass
+
+    if not unique_dates:
+        return 0
+
+    today = datetime.now(timezone.utc).date()
+    yesterday = today - timedelta(days=1)
+
+    if today in unique_dates:
+        check_date = today
+    elif yesterday in unique_dates:
+        check_date = yesterday
+    else:
+        # 오늘, 어제 모두 복용 이력이 없는 경우 streak은 0일
+        return 0
+
+    streak = 0
+    while check_date in unique_dates:
+        streak += 1
+        check_date -= timedelta(days=1)
+
+    return streak
 
 
 @router.delete("", response_model=dict)
@@ -92,7 +134,7 @@ async def create_log(body: MedicationLogCreate):
 
 @router.get("/stats", response_model=AdherenceStatsResponse)
 async def get_adherence_stats():
-    """복약 순응도(%) 및 연속 달성 일수(Streak) 통계 계산"""
+    """복약 순응도(%) 및 연속 달성 일수(Streak) 통계 실시간 계산"""
     all_bottles = await bottles().find(
         {"$or": [{"status": "ACTIVE"}, {"status": {"$exists": False}}]},
         {"_id": 0}
@@ -105,12 +147,27 @@ async def get_adherence_stats():
         b_id = log.get("bottle_id", "UNKNOWN")
         bottle_counts[b_id] = bottle_counts.get(b_id, 0) + 1
 
-    # 복약 순응도 계산 (단순 기준 85%+)
-    adherence_rate = round((total_logs / max(len(all_bottles) * 7, 1)) * 100, 1)
+    # 최근 7일간 복용 기록 수 계산
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+    recent_7days_logs = []
+    for log in all_logs:
+        taken_at_str = log.get("taken_at")
+        if taken_at_str:
+            try:
+                dt = datetime.fromisoformat(taken_at_str.replace("Z", "+00:00"))
+                if dt >= seven_days_ago:
+                    recent_7days_logs.append(log)
+            except Exception:
+                pass
+
+    # 최근 7일 복약 순응도 계산 (%)
+    target_doses = max(len(all_bottles) * 7, 1)
+    adherence_rate = round((len(recent_7days_logs) / target_doses) * 100, 1)
     adherence_rate = min(adherence_rate, 100.0)
 
-    # 연속 달성 일수 (Streak) 샘플 계산
-    streak_days = min(total_logs, 7)
+    # 정확한 연속 복용 달성 일수 (Streak) 계산
+    streak_days = calculate_streak(all_logs)
 
     return {
         "total_logs": total_logs,
