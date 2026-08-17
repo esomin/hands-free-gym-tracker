@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Badge } from '@mantine/core';
 import type { MedicationLog, Bottle, AdherenceStats } from '../../types';
 
 interface MedicationHistoryTabProps {
@@ -11,6 +12,49 @@ const BOTTLE_NAME_FALLBACK: Record<string, string> = {
   BOTTLE_01: '아침 유산균',
   BOTTLE_02: '점심 비타민 B',
   BOTTLE_03: '취침 전 비염약',
+};
+
+// 약통 설정 시각과 실제 복용 시각을 비교하여 정시/조기/지연 판별 배지 생성
+const renderIntakeStatusBadge = (takenAtIso: string, targetTimeStr?: string) => {
+  if (!targetTimeStr) {
+    return (
+      <Badge color="teal" variant="light" size="sm">
+        복용 완료
+      </Badge>
+    );
+  }
+
+  const takenDate = new Date(takenAtIso);
+  const timeParts = targetTimeStr.split(':').map(Number);
+  const tHour = timeParts[0] || 0;
+  const tMin = timeParts[1] || 0;
+
+  const takenTotalMin = takenDate.getHours() * 60 + takenDate.getMinutes();
+  const targetTotalMin = tHour * 60 + tMin;
+  const diffMin = takenTotalMin - targetTotalMin;
+
+  // 1시간(60분) 이내는 정시 복용 완료
+  if (Math.abs(diffMin) <= 60) {
+    return (
+      <Badge color="teal" variant="light" size="sm">
+        정시 복용 완료
+      </Badge>
+    );
+  } else if (diffMin < -60) {
+    const hoursEarly = Math.round(Math.abs(diffMin) / 60);
+    return (
+      <Badge color="blue" variant="light" size="sm">
+        조기 복용 ({hoursEarly}시간 전)
+      </Badge>
+    );
+  } else {
+    const hoursLate = Math.round(diffMin / 60);
+    return (
+      <Badge color="orange" variant="light" size="sm">
+        지연 복용 ({hoursLate}시간 후)
+      </Badge>
+    );
+  }
 };
 
 export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
@@ -233,7 +277,9 @@ export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
           ) : (
             <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
               {selectedLogs.map((log) => {
+                const targetBottle = bottles.find((b) => b.bottle_id === log.bottle_id);
                 const bottleName =
+                  targetBottle?.name ||
                   bottleMap.get(log.bottle_id) ||
                   BOTTLE_NAME_FALLBACK[log.bottle_id] ||
                   log.bottle_id;
@@ -254,13 +300,18 @@ export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
                         <div className="font-semibold text-gray-800">{bottleName}</div>
                         <div className="text-[11px] font-mono text-gray-400">
                           {log.bottle_id}
+                          {targetBottle?.target_time && (
+                            <span className="ml-1.5 text-gray-400">
+                              (설정: {targetBottle.target_time})
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="px-2 py-0.5 text-[11px] font-semibold rounded bg-teal-50 text-teal-700 border border-teal-200 inline-block mb-0.5">
-                        정시 복용 완료
-                      </span>
+                      <div className="mb-0.5">
+                        {renderIntakeStatusBadge(log.taken_at, targetBottle?.target_time)}
+                      </div>
                       <div className="text-[11px] text-gray-400 font-mono">{logTime}</div>
                     </div>
                   </div>
