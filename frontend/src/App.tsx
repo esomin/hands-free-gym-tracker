@@ -186,16 +186,19 @@ function App() {
           </div>
           <button
             onClick={() => setIsWifiModalOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/60 text-gray-700 hover:text-indigo-600 font-semibold !text-xs rounded-lg shadow-2xs transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold !text-xs rounded-lg shadow-xs transition-all cursor-pointer"
           >
-            <IconWifi size={18} className="text-indigo-600" />
-            <span>기기 Wi-Fi / BLE 설정</span>
+            <IconWifi size={16} />
+            <span>+ 새 약통 페어링 등록</span>
           </button>
         </div>
 
         <WifiProvisionModal
           isOpen={isWifiModalOpen}
           onClose={() => setIsWifiModalOpen(false)}
+          onBottleRegistered={() => {
+            loadData();
+          }}
         />
 
         {/* 라우트 1 — TODAY 페이지 (`/#today` 또는 기본 경로) */}

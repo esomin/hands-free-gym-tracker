@@ -1,19 +1,22 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export const BLE_SERVICE_UUID = '4fa21234-8e3a-45c2-965e-04f76c3f1234'.toLowerCase();
 export const BLE_CONFIG_CHAR_UUID = '4fa21234-8e3a-45c2-965e-04f76c3f1002'.toLowerCase();
 export const BLE_STATUS_CHAR_UUID = '4fa21234-8e3a-45c2-965e-04f76c3f1001'.toLowerCase();
 
-export type BLEStatus = 'idle' | 'scanning' | 'connecting' | 'sending' | 'success' | 'error';
+export type BLEStatus = 'idle' | 'scanning' | 'connecting' | 'connected' | 'sending' | 'success' | 'error';
 
 export interface UseWebBluetoothReturn {
   isSupported: boolean;
   status: BLEStatus;
   statusMessage: string;
   error: string | null;
+  connectedDeviceName: string | null;
+  connectBleDevice: () => Promise<string | null>;
   sendWifiConfig: (ssid: string, pass: string) => Promise<boolean>;
   sendWsConfig: (wsUrl: string) => Promise<boolean>;
   sendCalibrationCmd: () => Promise<boolean>;
+  disconnectBleDevice: () => void;
   resetStatus: () => void;
 }
 
@@ -22,6 +25,10 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
   const [status, setStatus] = useState<BLEStatus>('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
+
+  const deviceRef = useRef<any>(null);
+  const gattServerRef = useRef<any>(null);
 
   const resetStatus = useCallback(() => {
     setStatus('idle');
@@ -29,14 +36,28 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
     setError(null);
   }, []);
 
-  const sendPayloadToChar = useCallback(async (payload: string | Uint8Array): Promise<boolean> => {
+  const disconnectBleDevice = useCallback(() => {
+    try {
+      if (gattServerRef.current && gattServerRef.current.connected) {
+        console.log('[BLE] Disconnecting GATT session.');
+        gattServerRef.current.disconnect();
+      }
+    } catch (_) { }
+    deviceRef.current = null;
+    gattServerRef.current = null;
+    setConnectedDeviceName(null);
+    setStatus('idle');
+    setStatusMessage('');
+    setError(null);
+  }, []);
+
+  // 1단계: BLE 기기 탐색 및 GATT 서버 연결
+  const connectBleDevice = useCallback(async (): Promise<string | null> => {
     if (!isSupported) {
       setError('이 브라우저는 Web Bluetooth API를 지원하지 않습니다. Chrome, Edge 또는 Android Chrome을 사용해주세요.');
       setStatus('error');
-      return false;
+      return null;
     }
-
-    let device: any = null;
 
     try {
       setStatus('scanning');
@@ -44,8 +65,9 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       setError(null);
 
       const navBt = (navigator as any).bluetooth;
-      
-      // Step 1. SmartPillBox 기기 탐색
+      let device: any = null;
+
+      // 1. 크롬 BLE 팝업 호출
       console.log('[BLE Step 1] Requesting BLE device...');
       try {
         device = await navBt.requestDevice({
@@ -67,49 +89,96 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
         });
       }
 
-      console.log('[BLE Step 1 Complete] Selected Device:', device.name, device.id);
+      const devName = device.name || 'SmartPillBox_Device';
+      console.log('[BLE Step 1 Complete] Selected Device:', devName, device.id);
 
-      // Step 2. GATT 서버 연결
+      // 2. GATT 연결
       setStatus('connecting');
-      setStatusMessage(`[${device.name || 'SmartPillBox'}] 기기에 BLE GATT 연결을 진행합니다...`);
+      setStatusMessage(`[${devName}] 기기에 BLE GATT 연결 중...`);
       console.log('[BLE Step 2] Connecting to GATT server...');
 
-      const server: any = await device.gatt.connect();
+      const server = await device.gatt.connect();
       console.log('[BLE Step 2 Complete] GATT Connected:', server.connected);
 
-      // Step 3. Primary Service & Characteristic 검색
-      setStatusMessage('GATT 서비스 및 특성(Characteristic) 정보를 탐색 중...');
+      deviceRef.current = device;
+      gattServerRef.current = server;
+      setConnectedDeviceName(devName);
+
+      setStatus('connected');
+      setStatusMessage(`[${devName}] 기기와 BLE 연결이 성공적으로 완료되었습니다!`);
+
+      // 끊김 감지 핸들러 등록
+      device.addEventListener('gattserverdisconnected', () => {
+        console.log('[BLE Event] Device disconnected');
+        if (deviceRef.current === device) {
+          deviceRef.current = null;
+          gattServerRef.current = null;
+          setConnectedDeviceName(null);
+        }
+      });
+
+      return devName;
+    } catch (err: any) {
+      console.error('[WebBluetooth Connect Error]', err);
+      disconnectBleDevice();
+
+      if (err.name === 'NotFoundError') {
+        setStatus('idle');
+        setStatusMessage('기기 선택이 취소되었습니다.');
+      } else {
+        setStatus('error');
+        const errMsg = err.message || 'BLE 기기 연결 중 오류가 발생했습니다.';
+        setError(errMsg);
+        setStatusMessage(`오류 발생: ${errMsg}`);
+      }
+      return null;
+    }
+  }, [isSupported, disconnectBleDevice]);
+
+  // 2단계: 데이터 전송 (Wi-Fi, WS, Calibration)
+  const sendPayloadToChar = useCallback(async (payload: string | Uint8Array): Promise<boolean> => {
+    if (!isSupported) {
+      setError('이 브라우저는 Web Bluetooth API를 지원하지 않습니다.');
+      setStatus('error');
+      return false;
+    }
+
+    try {
+      let server = gattServerRef.current;
+      let device = deviceRef.current;
+
+      // 만약 아직 연결이 안 되어 있다면 연결 시도
+      if (!server || !server.connected) {
+        const name = await connectBleDevice();
+        if (!name) return false;
+        server = gattServerRef.current;
+        device = deviceRef.current;
+      }
+
+      setStatus('sending');
+      setStatusMessage('ESP32 기기로 설정 데이터를 전송 중입니다...');
+
       console.log('[BLE Step 3] Fetching primary service:', BLE_SERVICE_UUID);
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
 
       console.log('[BLE Step 3] Fetching characteristic:', BLE_CONFIG_CHAR_UUID);
       const configChar = await service.getCharacteristic(BLE_CONFIG_CHAR_UUID);
-      console.log('[BLE Step 3 Complete] Characteristic found:', configChar.uuid);
-
-      // Step 4. 데이터 전송
-      setStatus('sending');
-      setStatusMessage('ESP32 기기로 설정 데이터를 전송 중입니다...');
 
       const encoder = new TextEncoder();
       const dataBuffer = typeof payload === 'string' ? encoder.encode(payload) : payload;
-      console.log('[BLE Step 4] Writing data buffer to characteristic:', typeof payload === 'string' ? payload : 'Uint8Array');
+      console.log('[BLE Step 4] Writing data buffer...');
 
       try {
         if (typeof configChar.writeValueWithoutResponse === 'function') {
-          console.log('[BLE Step 4] Using writeValueWithoutResponse...');
           await configChar.writeValueWithoutResponse(dataBuffer);
         } else if (typeof configChar.writeValueWithResponse === 'function') {
-          console.log('[BLE Step 4] Using writeValueWithResponse...');
           await configChar.writeValueWithResponse(dataBuffer);
         } else {
-          console.log('[BLE Step 4] Using writeValue...');
           await configChar.writeValue(dataBuffer);
         }
       } catch (writeErr: any) {
         console.warn('[BLE Step 4 Exception]', writeErr);
-        // 만약 writeValueWithResponse가 오류를 던졌으나 구형 writeValue로 재시도 가능한 경우
         if (typeof configChar.writeValue === 'function') {
-          console.log('[BLE Step 4 Fallback] Retrying with writeValue...');
           await configChar.writeValue(dataBuffer);
         } else {
           throw writeErr;
@@ -121,29 +190,18 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       setStatus('success');
       setStatusMessage('설정이 성공적으로 전송되었습니다! ESP32 기기가 새로운 설정으로 재부팅됩니다.');
 
-      // 1.5초 후 명시적 연결 해제
+      // 1.5초 후 명시적 세션 해제
       setTimeout(() => {
-        try {
-          if (device && device.gatt && device.gatt.connected) {
-            console.log('[BLE Step 5] Disconnecting GATT session.');
-            device.gatt.disconnect();
-          }
-        } catch (_) {}
+        disconnectBleDevice();
       }, 1500);
 
       return true;
     } catch (err: any) {
-      console.error('[WebBluetooth Error]', err);
-      
-      try {
-        if (device && device.gatt && device.gatt.connected) {
-          device.gatt.disconnect();
-        }
-      } catch (_) {}
+      console.error('[WebBluetooth Write Error]', err);
 
       if (err.name === 'NotFoundError') {
         setStatus('idle');
-        setStatusMessage('기기 선택이 취소되었습니다.');
+        setStatusMessage('작업이 취소되었습니다.');
       } else {
         setStatus('error');
         const errMsg = err.message || 'BLE GATT 데이터 전송 중 오류가 발생했습니다.';
@@ -152,7 +210,7 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       }
       return false;
     }
-  }, [isSupported]);
+  }, [isSupported, connectBleDevice, disconnectBleDevice]);
 
   const sendWifiConfig = useCallback(async (ssid: string, pass: string): Promise<boolean> => {
     const cleanSsid = ssid.trim();
@@ -165,7 +223,7 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
 
     try {
       localStorage.setItem('last_wifi_ssid', cleanSsid);
-    } catch (_) {}
+    } catch (_) { }
 
     const payload = `WIFI:${cleanSsid},${cleanPass}`;
     return sendPayloadToChar(payload);
@@ -181,7 +239,7 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
 
     try {
       localStorage.setItem('last_ws_url', cleanUrl);
-    } catch (_) {}
+    } catch (_) { }
 
     const payload = `WS:${cleanUrl}`;
     return sendPayloadToChar(payload);
@@ -197,9 +255,12 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
     status,
     statusMessage,
     error,
+    connectedDeviceName,
+    connectBleDevice,
     sendWifiConfig,
     sendWsConfig,
     sendCalibrationCmd,
+    disconnectBleDevice,
     resetStatus,
   };
 }

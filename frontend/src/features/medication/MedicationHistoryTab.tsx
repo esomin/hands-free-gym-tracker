@@ -16,7 +16,6 @@ const BOTTLE_NAME_FALLBACK: Record<string, string> = {
 export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
   logs,
   bottles,
-  stats,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateStr, setSelectedDateStr] = useState(
@@ -107,7 +106,7 @@ export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrevMonth}
-              className="px-2.5 py-1 text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+              className="px-2.5 py-1 !text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
             >
               이전달
             </button>
@@ -116,7 +115,7 @@ export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
             </span>
             <button
               onClick={handleNextMonth}
-              className="px-2.5 py-1 text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+              className="px-2.5 py-1 !text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
             >
               다음달
             </button>
@@ -154,19 +153,17 @@ export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
                 key={idx}
                 onClick={() => item.isCurrentMonth && setSelectedDateStr(item.dateStr)}
                 disabled={!item.isCurrentMonth}
-                className={`h-14 p-1.5 rounded-lg border flex flex-col justify-between text-left transition-all ${
-                  !item.isCurrentMonth
-                    ? 'bg-gray-50/50 border-gray-100 text-gray-300 cursor-not-allowed'
-                    : isSelected
+                className={`h-14 p-1.5 rounded-lg border flex flex-col justify-between text-left transition-all ${!item.isCurrentMonth
+                  ? 'bg-gray-50/50 border-gray-100 text-gray-300 cursor-not-allowed'
+                  : isSelected
                     ? 'bg-teal-50 border-teal-500 text-teal-950 shadow-xs'
                     : 'bg-white border-gray-200 hover:border-gray-300 text-gray-800'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`text-xs font-semibold ${
-                      isSelected ? 'text-teal-700' : ''
-                    }`}
+                    className={`text-xs font-semibold ${isSelected ? 'text-teal-700' : ''
+                      }`}
                   >
                     {item.dayNum}
                   </span>
