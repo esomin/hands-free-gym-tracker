@@ -7,7 +7,7 @@ from db.mongo_client import create_indexes
 from routers import bottle, log
 from websocket.handler import handle_sensor_stream, manager
 
-app = FastAPI(title="Hands-Free Med Tracker API")
+app = FastAPI(title="Zero-Touch Pill Tracker API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,7 +54,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "app": "Hands-Free Med Tracker"}
+    return {"status": "ok", "app": "Zero-Touch Pill Tracker"}
 
 
 # ── 개발 테스트용 ─────────────────────────────────────────────────────────────

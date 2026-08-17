@@ -1,4 +1,4 @@
-# Session Cache 아키텍처 (Med Tracker)
+# Session Cache 아키텍처 (Zero-Touch Pill Tracker)
 
 WebSocket으로 연결된 각 사용자의 실시간 약통 복용 상태 및 세션 정보를 서버 메모리에 유지하는 데이터 구조입니다.
 50Hz 센서 데이터를 처리하는 동안 데이터베이스 조회 없이 빠르게 상태를 읽고 씁니다.

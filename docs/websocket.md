@@ -1,4 +1,4 @@
-# WebSocket 아키텍처 및 이벤트 프로토콜 (Med Tracker)
+# WebSocket 아키텍처 및 이벤트 프로토콜 (Zero-Touch Pill Tracker)
 
 ## 연결 구조
 

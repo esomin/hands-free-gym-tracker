@@ -1,4 +1,4 @@
-# IMU 센서 임계값 및 노이즈 필터링 정의서 (Med Tracker)
+# IMU 센서 임계값 및 노이즈 필터링 정의서 (Zero-Touch Pill Tracker)
 
 `backend/pipeline/imu_state.py` 및 `backend/pipeline/noise_filter.py`의 약통(Pill Bottle) 제스처 상태 판별 알고리즘 및 실측 로그 주파수/SNR/반동 진동(Ringing) 분석 기반 최적 EMA/LPF 필터 계수(`ALPHA = 0.45`) 설정 근거를 기록합니다.
 

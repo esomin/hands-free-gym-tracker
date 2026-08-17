@@ -1,4 +1,4 @@
-# [PRD] Hands-Free Med Tracker 개발 요구사항 명세서
+# [PRD] Zero-Touch Pill Tracker 개발 요구사항 명세서
 
 ## 1. System Overview & Core Principles
 

@@ -226,7 +226,7 @@ function App() {
       <div className="flex-1 p-4" style={{ borderLeft: '1px solid #dee2e6' }}>
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-800">Hands-Free Med Tracker</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Zero-Touch Pill Tracker</h1>
             <Badge color={badge.color} variant="light">{badge.label}</Badge>
           </div>
 

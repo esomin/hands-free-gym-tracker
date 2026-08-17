@@ -7,7 +7,7 @@ from imu_simulator import BOTTLE_PRESETS, generate_imu
 from shared_state import params as _params  # 모듈 캐시로 단일 인스턴스 보장
 from ws_emitter import start_stream
 
-st.set_page_config(page_title="Med Tracker Sensor Simulator", layout="wide")
+st.set_page_config(page_title="Zero-Touch Pill Tracker Sensor Simulator", layout="wide")
 
 # ── 우상단 Running... 멈춤 인디케이터 스타일 다듬기 ──────────────────────────
 st.markdown("""
@@ -61,7 +61,7 @@ if st.session_state.streaming and st.session_state.stop_event is not None:
         st.session_state.stop_event = None
 
 # ── 헤더 및 사용 가이드 ────────────────────────────────────────────────────────
-st.title("Hands-Free Med Tracker — Sensor Simulator")
+st.title("Zero-Touch Pill Tracker — Sensor Simulator")
 st.caption("실측 데이터 기반 3축 자이로·가속도(IMU) 센서 및 자율 복용 모션을 시뮬레이션합니다.")
 
 st.info(
