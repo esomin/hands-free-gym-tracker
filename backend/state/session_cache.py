@@ -47,6 +47,9 @@ class SessionState:
     # 마지막 복용 감지 시각 (중복 감지 방지용)
     last_intake_at: datetime | None = None
 
+    # 약통별 마지막 복용 감지 시각 (약통별 60초 중복 감지 방지용)
+    last_intake_by_bottle: dict[str, datetime] = field(default_factory=dict)
+
 
 # ── LRU 세션 캐시 ─────────────────────────────────────────────────────────────
 

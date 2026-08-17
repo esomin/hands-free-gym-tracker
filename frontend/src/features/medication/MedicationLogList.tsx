@@ -51,7 +51,9 @@ export const MedicationLogList: React.FC<MedicationLogListProps> = ({
     <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs">
       <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center justify-between">
         <span>{showOnlyToday ? '오늘의 실시간 복용 이력 타임라인' : '실시간 복용 이력 타임라인'}</span>
-        <span className="text-xs text-gray-500 font-mono font-normal">오늘 총 {displayedLogs.length}건</span>
+        <span className="text-xs text-gray-500 font-mono font-normal">
+          {showOnlyToday ? `오늘 총 ${displayedLogs.length}건` : `총 ${displayedLogs.length}건`}
+        </span>
       </h3>
 
       <div className="space-y-2 max-h-96 overflow-y-auto pr-1">

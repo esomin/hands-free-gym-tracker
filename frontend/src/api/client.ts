@@ -98,3 +98,15 @@ export async function createMedicationLog(bottleId: string): Promise<MedicationL
 export async function fetchAdherenceStats(): Promise<AdherenceStats> {
   return apiFetch<AdherenceStats>('/api/logs/stats');
 }
+
+export async function deleteRecentLogs(hours = 1.0): Promise<{ status: string; deleted_count: number; message: string }> {
+  return apiFetch<{ status: string; deleted_count: number; message: string }>(`/api/logs/recent?hours=${hours}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function deleteAllLogs(): Promise<{ status: string; deleted_count: number; message: string }> {
+  return apiFetch<{ status: string; deleted_count: number; message: string }>('/api/logs', {
+    method: 'DELETE',
+  });
+}

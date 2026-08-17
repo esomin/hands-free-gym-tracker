@@ -150,20 +150,41 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                     "timestamp": ts.isoformat(),
                 })
 
-            # ── 4. 영양제 복용 감지 및 MongoDB 영속화 ───────────
-            from pipeline.imu_state import detect_medication_intake, make_medication_taken_event
+            # ── 4. IMU 약통 상태 판별 ─────────────────────────────────
+            from pipeline.imu_state import detect_medication_intake, make_medication_taken_event, detect_bottle_state, make_state_event
             from db.mongo_client import medication_logs
-            
-            # 복용 감지 중복 방지 (동일 복용 동작 중에는 10초에 1회만 이벤트 발행)
+
+            prev_state = session.tumbler_state
+            new_state = detect_bottle_state(session.recent_sensor_window)
+            session.tumbler_state = new_state
+
+            if new_state != prev_state:
+                print(f'[handler] {user_id} 상태 전이: {prev_state} -> {new_state} '
+                      f'(acc_z={f_acc_z:.3f}, state_deg={state_deg})')
+
+            state_event = make_state_event(new_state, prev_state, timestamp=ts)
+            if state_event:
+                state_event['payload']['bottle_id'] = bottle_id
+                await manager.broadcast(user_id, state_event)
+
+            # ── 5. 영양제 복용 감지 및 MongoDB 영속화 ───────────
+            # 약통별 중복 복용 감지 방지 (동일 약통은 60초에 1회만 정식 복용 저장)
+            last_intake_time = session.last_intake_by_bottle.get(bottle_id)
             is_cooldown = (
-                session.last_intake_at is not None and 
-                (now_ts - session.last_intake_at).total_seconds() < 10.0
+                last_intake_time is not None and 
+                (now_ts - last_intake_time).total_seconds() < 60.0
             )
 
-            if not is_cooldown and detect_medication_intake(session.recent_sensor_window):
+            # 연속 반복 방지: 약통 털어넣기/기울임(pouring) 후 제자리 거치(settled)로 동작이 완전 종료된 순간 1회만 확정
+            is_intake_completed = (prev_state == 'pouring' and new_state == 'settled')
+
+            if not is_cooldown and is_intake_completed:
+                session.last_intake_by_bottle[bottle_id] = now_ts
                 session.last_intake_at = now_ts
+                session.recent_sensor_window.clear()  # 슬라이딩 윈도우 잔여 센서값 리셋
+
                 intake_event = make_medication_taken_event(bottle_id, timestamp=ts)
-                print(f'[handler] 약통 복용 감지 확정: {bottle_id} (AccZ={f_acc_z:.2f}, state_deg={state_deg})')
+                print(f'[handler] 약통 복용 감지 최종 확정 (중복방지 적용): {bottle_id} (AccZ={f_acc_z:.2f}, gesture={prev_state}->{new_state})')
                 await manager.broadcast(user_id, intake_event)
 
                 # MongoDB 복용 이력 자동 영속화
@@ -177,20 +198,6 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                     print(f'[handler] MongoDB 복용 로그 영속화 완료: {bottle_id}')
                 except Exception as e:
                     print(f'[handler] MongoDB 저장 실패: {e}')
-
-            # ── 5. IMU 약통 상태 판별 ─────────────────────────────────
-            prev_state = session.tumbler_state
-            new_state = detect_bottle_state(session.recent_sensor_window)
-            session.tumbler_state = new_state
-
-            if new_state != prev_state:
-                print(f'[handler] {user_id} 상태 전이: {prev_state} -> {new_state} '
-                      f'(acc_z={f_acc_z:.3f}, state_deg={state_deg})')
-
-            state_event = make_state_event(new_state, prev_state, timestamp=ts)
-            if state_event:
-                state_event['payload']['bottle_id'] = bottle_id
-                await manager.broadcast(user_id, state_event)
 
     except WebSocketDisconnect:
         pass

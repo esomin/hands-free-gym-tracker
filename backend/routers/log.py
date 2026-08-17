@@ -86,7 +86,25 @@ def calculate_streak(logs: list[dict]) -> int:
 async def clear_logs():
     """복용 이력 로그 전체 삭제"""
     res = await medication_logs().delete_many({})
-    return {"status": "success", "deleted_count": res.deleted_count}
+    return {"status": "success", "deleted_count": res.deleted_count, "message": f"전체 복용 이력 로그 {res.deleted_count}건이 삭제되었습니다."}
+
+
+@router.delete("/recent", response_model=dict)
+@router.delete("/recent/", response_model=dict)
+async def clear_recent_logs(
+    hours: float = Query(1.0, description="삭제할 최근 시간 (기본값: 1.0시간)")
+):
+    """최근 N시간 이내에 기록된 복용 이력 로그만 선택 삭제 (기본 1.0시간)"""
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff_iso = cutoff_dt.isoformat()
+
+    res = await medication_logs().delete_many({"taken_at": {"$gte": cutoff_iso}})
+    return {
+        "status": "success",
+        "deleted_count": res.deleted_count,
+        "hours": hours,
+        "message": f"최근 {hours}시간 이내 복용 이력 로그 {res.deleted_count}건이 성공적으로 삭제되었습니다."
+    }
 
 
 @router.get("", response_model=List[MedicationLogResponse])
@@ -110,7 +128,29 @@ async def get_logs(
 
     cursor = medication_logs().find(query).sort("taken_at", -1)
     docs = await cursor.to_list(length=300)
-    return [_serialize(doc) for doc in docs]
+
+    # 60초 이내 중복 기록 디두플리케이션 (동일 약통 중복 감지 방지)
+    filtered_docs = []
+    last_times_by_bottle: dict[str, datetime] = {}
+
+    for doc in docs:
+        b_id = doc.get("bottle_id", "")
+        taken_str = doc.get("taken_at")
+        if not taken_str:
+            filtered_docs.append(doc)
+            continue
+        try:
+            taken_dt = datetime.fromisoformat(taken_str.replace("Z", "+00:00"))
+        except Exception:
+            filtered_docs.append(doc)
+            continue
+
+        last_dt = last_times_by_bottle.get(b_id)
+        if last_dt is None or abs((last_dt - taken_dt).total_seconds()) >= 60.0:
+            last_times_by_bottle[b_id] = taken_dt
+            filtered_docs.append(doc)
+
+    return [_serialize(doc) for doc in filtered_docs]
 
 
 @router.post("", response_model=MedicationLogResponse, status_code=201)

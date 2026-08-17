@@ -14,15 +14,15 @@ from typing import Literal
 # 슬라이딩 윈도우 크기 (50Hz 기준 2.0초 수용)
 WINDOW_SIZE = 100
 
-# 약통 털어넣기(Shaking/Pouring) 복용 판별 임계값 (실측 logs.txt 분석 반영)
-# 1. 강한 손목 스냅(Violent Shaking) 시 평면 가속도 피크 15.0 m/s^2 (약 1.5g~2.0g) 이상 급증
-POURING_ACC_XY_MIN = 15.0
+# 약통 털어넣기(Shaking/Pouring) 복용 판별 임계값 (20Hz 시뮬레이터 & 실기기 겸용)
+# 1. 일반적인 약통 기울임/털어넣기 스냅 시 평면 가속도 피크 7.5 m/s^2 이상 (약 0.75g~)
+POURING_ACC_XY_MIN = 7.5
 
-# 2. 동적 타격 동작 중 Z축 가속도 동요 수용 범위 (90도 부근 요동 수용)
-POURING_ACC_Z_MAX = 3.0
+# 2. 동적 타격/기울임 동작 중 Z축 가속도 동요 수용 범위 (60도~110도 요동 수용)
+POURING_ACC_Z_MAX = 5.5
 
-# 3. 짧고 강한 스냅 타격 피크 지속 시간 (50Hz 기준 10 샘플 = 0.2초)
-INTAKE_SUSTAINED_SAMPLES = 10
+# 3. 샘플 지속 개수 (20Hz 기준 4 샘플 = 0.2초)
+INTAKE_SUSTAINED_SAMPLES = 4
 
 # 미세 진동 노이즈 오탐 방지를 위한 이동(Moving) 가속도 임계값 (g 단위)
 MOVE_ACCEL_THRESHOLD = 0.15
@@ -70,23 +70,21 @@ def detect_medication_intake(window: deque[SensorReading]) -> bool:
     윈도우 내 샘플들이 영양제 복용 모션(손목 스냅 털어넣기 Shaking) 조건에 부합하는지 판별한다.
 
     조건:
-    1. AccZ < POURING_ACC_Z_MAX (3.0 m/s^2 이하 - 90도~110도 요동 수용)
-    2. sqrt(AccX^2 + AccY^2) > POURING_ACC_XY_MIN (15.0 m/s^2 이상 - 강한 스냅 피크)
-    3. 최근 INTAKE_SUSTAINED_SAMPLES (10샘플 = 0.2초) 중 80% 이상(8개 이상) 조건 충족 시 인정 (스파이크 노이즈 강건성)
+    1. AccZ < POURING_ACC_Z_MAX (5.5 m/s^2 이하 - 60도~110도 요동 수용)
+    2. sqrt(AccX^2 + AccY^2) > POURING_ACC_XY_MIN (7.5 m/s^2 이상 - 약통 털어넣기 피크)
+    3. 최근 INTAKE_SUSTAINED_SAMPLES (4샘플 = 0.2초) 중 50% 이상(2개 이상) 조건 충족 시 인정
     """
     if len(window) < INTAKE_SUSTAINED_SAMPLES:
         return False
 
     recent_samples = list(window)[-INTAKE_SUSTAINED_SAMPLES:]
 
-    # 10개 샘플 중 조건 충족 샘플 수 카운트
     valid_count = sum(
         1 for r in recent_samples
         if r.acc_z < POURING_ACC_Z_MAX and math.sqrt(r.acc_x**2 + r.acc_y**2) > POURING_ACC_XY_MIN
     )
 
-    # 80% 이상 (10개 중 8개 이상) 충족 시 순간 스파이크 노이즈가 튀어도 복용 성공으로 판정
-    return (valid_count / INTAKE_SUSTAINED_SAMPLES) >= 0.80
+    return (valid_count / INTAKE_SUSTAINED_SAMPLES) >= 0.50
 
 
 def detect_bottle_state(sensor_window: deque[SensorReading]) -> BottleState:
