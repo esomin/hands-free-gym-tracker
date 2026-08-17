@@ -30,6 +30,8 @@ export type MedicationLog = {
   event_type: string;
   taken_at: string;
   status: string;
+  compliance_status?: 'ON_TIME' | 'EARLY' | 'LATE';
+  diff_minutes?: number;
 };
 
 export type MedicationTakenPayload = {
@@ -37,6 +39,8 @@ export type MedicationTakenPayload = {
   taken_at: string;
   status: string;
   state_deg?: number;
+  compliance_status?: 'ON_TIME' | 'EARLY' | 'LATE';
+  diff_minutes?: number;
 };
 
 export type BottleState = 'idle' | 'moving' | 'pouring' | 'settled';

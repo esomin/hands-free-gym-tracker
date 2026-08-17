@@ -183,8 +183,19 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                 session.last_intake_at = now_ts
                 session.recent_sensor_window.clear()  # 슬라이딩 윈도우 잔여 센서값 리셋
 
+                # 복용 성과 데이터 산출 (target_time과 비교)
+                from db.mongo_client import bottles
+                from routers.log import compute_compliance_status
+
+                target_bottle = await bottles().find_one({"bottle_id": bottle_id})
+                target_time = target_bottle.get("target_time") if target_bottle else None
+                c_status, diff_m = compute_compliance_status(ts.isoformat(), target_time)
+
                 intake_event = make_medication_taken_event(bottle_id, timestamp=ts)
-                print(f'[handler] 약통 복용 감지 최종 확정 (중복방지 적용): {bottle_id} (AccZ={f_acc_z:.2f}, gesture={prev_state}->{new_state})')
+                intake_event["payload"]["compliance_status"] = c_status
+                intake_event["payload"]["diff_minutes"] = diff_m
+
+                print(f'[handler] 약통 복용 감지 최종 확정 (중복방지 적용): {bottle_id} (compliance={c_status}, diff={diff_m}분)')
                 await manager.broadcast(user_id, intake_event)
 
                 # MongoDB 복용 이력 자동 영속화
@@ -194,8 +205,10 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                         "event_type": "settled",
                         "taken_at": ts.isoformat(),
                         "status": "SUCCESS",
+                        "compliance_status": c_status,
+                        "diff_minutes": diff_m,
                     })
-                    print(f'[handler] MongoDB 복용 로그 영속화 완료: {bottle_id}')
+                    print(f'[handler] MongoDB 복용 로그 영속화 완료: {bottle_id} ({c_status})')
                 except Exception as e:
                     print(f'[handler] MongoDB 저장 실패: {e}')
 

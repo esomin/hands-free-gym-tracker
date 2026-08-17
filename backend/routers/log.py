@@ -17,6 +17,8 @@ class MedicationLogCreate(BaseModel):
     event_type: str = Field("settled", example="settled")
     taken_at: Optional[str] = None
     status: str = Field("SUCCESS", example="SUCCESS")
+    compliance_status: Optional[str] = None
+    diff_minutes: Optional[int] = None
 
 
 class MedicationLogResponse(BaseModel):
@@ -25,6 +27,8 @@ class MedicationLogResponse(BaseModel):
     event_type: str
     taken_at: str
     status: str
+    compliance_status: Optional[str] = "ON_TIME"
+    diff_minutes: Optional[int] = 0
 
 
 class AdherenceStatsResponse(BaseModel):
@@ -32,6 +36,37 @@ class AdherenceStatsResponse(BaseModel):
     adherence_rate: float
     streak_days: int
     bottle_stats: dict
+
+
+def compute_compliance_status(taken_at_str: str, target_time_str: Optional[str] = None) -> tuple[str, int]:
+    """
+    약통 설정 시각과 실제 복용 시각을 비교하여 compliance_status 및 diff_minutes 산출
+    - compliance_status: 'ON_TIME' | 'EARLY' | 'LATE'
+    - diff_minutes: 설정 시각 대비 복용 오차 분 (음수=조기 복용, 양수=지연 복용)
+    """
+    if not target_time_str:
+        return ("ON_TIME", 0)
+
+    try:
+        taken_dt = datetime.fromisoformat(taken_at_str.replace("Z", "+00:00"))
+        parts = target_time_str.split(":")
+        t_hour = int(parts[0])
+        t_min = int(parts[1]) if len(parts) > 1 else 0
+
+        taken_total_min = taken_dt.hour * 60 + taken_dt.minute
+        target_total_min = t_hour * 60 + t_min
+        diff_min = taken_total_min - target_total_min
+
+        if abs(diff_min) <= 60:
+            status = "ON_TIME"
+        elif diff_min < -60:
+            status = "EARLY"
+        else:
+            status = "LATE"
+
+        return (status, diff_min)
+    except Exception:
+        return ("ON_TIME", 0)
 
 
 def _serialize(doc: dict) -> dict:
@@ -129,7 +164,11 @@ async def get_logs(
     cursor = medication_logs().find(query).sort("taken_at", -1)
     docs = await cursor.to_list(length=300)
 
-    # 60초 이내 중복 기록 디두플리케이션 (동일 약통 중복 감지 방지)
+    # 약통 정보 맵핑 사전 구축 (target_time 계산용)
+    all_bottles = await bottles().find({}, {"_id": 0, "bottle_id": 1, "target_time": 1}).to_list(length=100)
+    target_time_map = {b["bottle_id"]: b.get("target_time") for b in all_bottles}
+
+    # 60초 이내 중복 기록 디두플리케이션 및 복용 성과 데이터 보강
     filtered_docs = []
     last_times_by_bottle: dict[str, datetime] = {}
 
@@ -148,6 +187,13 @@ async def get_logs(
         last_dt = last_times_by_bottle.get(b_id)
         if last_dt is None or abs((last_dt - taken_dt).total_seconds()) >= 60.0:
             last_times_by_bottle[b_id] = taken_dt
+
+            # compliance_status 및 diff_minutes가 문서에 없으면 동적 계산 후 채움
+            if "compliance_status" not in doc or doc["compliance_status"] is None:
+                c_status, diff_m = compute_compliance_status(taken_str, target_time_map.get(b_id))
+                doc["compliance_status"] = c_status
+                doc["diff_minutes"] = diff_m
+
             filtered_docs.append(doc)
 
     return [_serialize(doc) for doc in filtered_docs]
@@ -159,11 +205,19 @@ async def create_log(body: MedicationLogCreate):
     """복용 이력 수동 생성 및 영속화"""
     taken_time = body.taken_at or datetime.now(timezone.utc).isoformat()
 
+    # 약통 정보 조회하여 compliance_status 및 diff_minutes 산출
+    target_bottle = await bottles().find_one({"bottle_id": body.bottle_id})
+    target_time = target_bottle.get("target_time") if target_bottle else None
+
+    c_status, diff_m = compute_compliance_status(taken_time, target_time)
+
     doc = {
         "bottle_id": body.bottle_id,
         "event_type": body.event_type,
         "taken_at": taken_time,
         "status": body.status,
+        "compliance_status": body.compliance_status or c_status,
+        "diff_minutes": body.diff_minutes if body.diff_minutes is not None else diff_m,
     }
 
     result = await medication_logs().insert_one(doc)

@@ -14,9 +14,38 @@ const BOTTLE_NAME_FALLBACK: Record<string, string> = {
   BOTTLE_03: '취침 전 비염약',
 };
 
-// 약통 설정 시각과 실제 복용 시각을 비교하여 정시/조기/지연 판별 배지 생성
-const renderIntakeStatusBadge = (takenAtIso: string, targetTimeStr?: string) => {
-  if (!targetTimeStr) {
+// 백엔드 전달 복용 성과 데이터(compliance_status, diff_minutes) 기반 배지 렌더링
+const renderIntakeStatusBadge = (
+  complianceStatus?: 'ON_TIME' | 'EARLY' | 'LATE',
+  diffMinutes?: number,
+  takenAtIso?: string,
+  targetTimeStr?: string
+) => {
+  if (complianceStatus) {
+    if (complianceStatus === 'ON_TIME') {
+      return (
+        <Badge color="teal" variant="light" size="sm">
+          정시 복용 완료
+        </Badge>
+      );
+    } else if (complianceStatus === 'EARLY') {
+      const hours = diffMinutes ? Math.max(1, Math.round(Math.abs(diffMinutes) / 60)) : 1;
+      return (
+        <Badge color="blue" variant="light" size="sm">
+          조기 복용 ({hours}시간 전)
+        </Badge>
+      );
+    } else if (complianceStatus === 'LATE') {
+      const hours = diffMinutes ? Math.max(1, Math.round(diffMinutes / 60)) : 1;
+      return (
+        <Badge color="orange" variant="light" size="sm">
+          지연 복용 ({hours}시간 후)
+        </Badge>
+      );
+    }
+  }
+
+  if (!takenAtIso || !targetTimeStr) {
     return (
       <Badge color="teal" variant="light" size="sm">
         복용 완료
@@ -33,7 +62,6 @@ const renderIntakeStatusBadge = (takenAtIso: string, targetTimeStr?: string) => 
   const targetTotalMin = tHour * 60 + tMin;
   const diffMin = takenTotalMin - targetTotalMin;
 
-  // 1시간(60분) 이내는 정시 복용 완료
   if (Math.abs(diffMin) <= 60) {
     return (
       <Badge color="teal" variant="light" size="sm">
@@ -310,7 +338,12 @@ export const MedicationHistoryTab: React.FC<MedicationHistoryTabProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="mb-0.5">
-                        {renderIntakeStatusBadge(log.taken_at, targetBottle?.target_time)}
+                        {renderIntakeStatusBadge(
+                          log.compliance_status,
+                          log.diff_minutes,
+                          log.taken_at,
+                          targetBottle?.target_time
+                        )}
                       </div>
                       <div className="text-[11px] text-gray-400 font-mono">{logTime}</div>
                     </div>
