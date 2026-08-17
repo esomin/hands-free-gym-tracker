@@ -93,7 +93,10 @@ async def create_log(body: MedicationLogCreate):
 @router.get("/stats", response_model=AdherenceStatsResponse)
 async def get_adherence_stats():
     """복약 순응도(%) 및 연속 달성 일수(Streak) 통계 계산"""
-    all_bottles = await bottles().find({}, {"_id": 0}).to_list(length=100)
+    all_bottles = await bottles().find(
+        {"$or": [{"status": "ACTIVE"}, {"status": {"$exists": False}}]},
+        {"_id": 0}
+    ).to_list(length=100)
     all_logs = await medication_logs().find({}, {"_id": 0}).to_list(length=1000)
 
     total_logs = len(all_logs)
