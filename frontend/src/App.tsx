@@ -48,6 +48,14 @@ const STATUS_BADGE = {
   disconnected: { color: 'gray', label: '연결 대기' },
 };
 
+// 로컬 날짜 문자열 (YYYY-MM-DD) 변환 헬퍼
+const getLocalDateStr = (d: Date = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // URL Hash 기반의 경량 라우터 타입 (#today, #history)
 type RoutePage = 'today' | 'history';
 
@@ -98,14 +106,17 @@ function App() {
       setLogs(fetchedLogs);
       setStats(fetchedStats);
 
-      // 오늘 날짜 문자열 (YYYY-MM-DD)
-      const todayStr = new Date().toISOString().slice(0, 10);
+      // 오늘 날짜 문자열 (로컬 타임존 기준 YYYY-MM-DD)
+      const todayStr = getLocalDateStr(new Date());
       const takenMap: Record<string, boolean> = {};
       const lastTimes: Record<string, string> = {};
 
       for (const log of fetchedLogs) {
-        if (log.taken_at.startsWith(todayStr)) {
-          takenMap[log.bottle_id] = true;
+        if (log.taken_at) {
+          const logDateStr = getLocalDateStr(new Date(log.taken_at));
+          if (logDateStr === todayStr) {
+            takenMap[log.bottle_id] = true;
+          }
         }
         if (!lastTimes[log.bottle_id] || new Date(log.taken_at) > new Date(lastTimes[log.bottle_id])) {
           lastTimes[log.bottle_id] = log.taken_at;
