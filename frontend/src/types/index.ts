@@ -4,7 +4,8 @@ export type SensorEventType =
   | 'medication_taken'
   | 'bottle_state_changed'
   | 'tumbler_state_changed'
-  | 'equipment_detected';
+  | 'equipment_detected'
+  | 'sensor_pulse';
 
 export type WebSocketMessage<T = unknown> = {
   type: SensorEventType;
@@ -41,6 +42,7 @@ export type MedicationTakenPayload = {
 export type BottleState = 'idle' | 'moving' | 'pouring' | 'settled';
 
 export type BottleStatePayload = {
+  bottle_id?: string;
   state: BottleState;
   transitioned_at?: string;
 };
@@ -60,7 +62,8 @@ export type WebSocketEvent =
   | { type: 'medication_taken'; payload: MedicationTakenPayload }
   | { type: 'bottle_state_changed'; payload: BottleStatePayload }
   | { type: 'tumbler_state_changed'; payload: { state: string } }
-  | { type: 'equipment_detected'; payload: { equipmentName: string } };
+  | { type: 'equipment_detected'; payload: { equipmentName: string } }
+  | { type: 'sensor_pulse'; payload: { bottle_id: string; timestamp: string } };
 
 export type UseWebSocketReturn = {
   status: WebSocketStatus;

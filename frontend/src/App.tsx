@@ -88,10 +88,11 @@ function App() {
     });
   }, [bottles]);
 
-  // 실시간 약통별 복용 완료 여부 및 현재 각도 상태
+  // 실시간 약통별 복용 완료 여부 및 현재 각도/센서 스트리밍 상태
   const [takenBottles, setTakenBottles] = useState<Record<string, boolean>>({});
   const [bottleStates, setBottleStates] = useState<Record<string, BottleState>>({});
   const [lastTakenTimes, setLastTakenTimes] = useState<Record<string, string>>({});
+  const [lastPulseTimes, setLastPulseTimes] = useState<Record<string, number>>({});
 
   // 서버 데이터 로드
   const loadData = useCallback(async () => {
@@ -154,15 +155,30 @@ function App() {
     window.location.hash = page;
   };
 
-  // WebSocket 이벤트 수신 시 데이터 갱신 및 상태 업데이트
+  // WebSocket 이벤트 수신 시 센서 스트리밍 핑 갱신 및 데이터 업데이트
   useEffect(() => {
     if (!lastEvent) return;
 
-    const { bottle_id, state } = lastEvent;
-    if (bottle_id && state) {
-      setBottleStates((prev) => ({ ...prev, [bottle_id]: state }));
+    if (lastEvent.type === 'sensor_pulse' && lastEvent.payload?.bottle_id) {
+      const bId = lastEvent.payload.bottle_id;
+      setLastPulseTimes((prev) => ({ ...prev, [bId]: Date.now() }));
+    }
 
-      // settled 이벤트 발생 시 복용 완료 처리 및 데이터 재로드
+    if (lastEvent.type === 'medication_taken' && lastEvent.payload?.bottle_id) {
+      const bId = lastEvent.payload.bottle_id;
+      setLastPulseTimes((prev) => ({ ...prev, [bId]: Date.now() }));
+      loadData();
+    }
+
+    if (lastEvent.type === 'bottle_state_changed') {
+      const bottleId = (lastEvent.payload as any)?.bottle_id;
+      const state = lastEvent.payload?.state;
+      if (bottleId) {
+        setLastPulseTimes((prev) => ({ ...prev, [bottleId]: Date.now() }));
+        if (state) {
+          setBottleStates((prev) => ({ ...prev, [bottleId]: state }));
+        }
+      }
       if (state === 'settled') {
         loadData();
       }
@@ -341,6 +357,7 @@ function App() {
                       isTakenToday={!!takenBottles[bottle.bottle_id]}
                       currentState={bottleStates[bottle.bottle_id] || 'idle'}
                       lastTakenTime={lastTakenTimes[bottle.bottle_id]}
+                      isStreaming={Date.now() - (lastPulseTimes[bottle.bottle_id] || 0) < 4000}
                       onEdit={(b) => setEditTargetBottle(b)}
                       onDelete={(id, name) => setDeleteTarget({ id, name })}
                     />

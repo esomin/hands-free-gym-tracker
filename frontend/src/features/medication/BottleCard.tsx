@@ -7,6 +7,7 @@ interface BottleCardProps {
   isTakenToday: boolean;
   currentState?: BottleState;
   lastTakenTime?: string;
+  isStreaming?: boolean;
   onDelete?: (bottleId: string, bottleName: string) => void;
   onEdit?: (bottle: Bottle) => void;
 }
@@ -16,6 +17,7 @@ export const BottleCard: React.FC<BottleCardProps> = ({
   isTakenToday,
   currentState = 'idle',
   lastTakenTime,
+  isStreaming = false,
   onDelete,
   onEdit,
 }) => {
@@ -49,12 +51,25 @@ export const BottleCard: React.FC<BottleCardProps> = ({
   }
 
   return (
-    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3.5 hover:border-teal-200 transition-all duration-200 relative group">
+    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3.5 hover:border-teal-200 transition-all duration-200 relative group shadow-2xs">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-gray-500 bg-gray-200/70 px-2 py-0.5 rounded">
+          <span className="text-xs font-mono text-gray-700 bg-gray-200/80 px-2 py-0.5 rounded font-semibold">
             {bottle.bottle_id}
           </span>
+
+          {/* 센서 신호 수신 상태 인디케이터 (이모지 없음, 순수 CSS 펄스 도트) */}
+          {isStreaming ? (
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-medium text-emerald-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>실시간 신호 수신 중</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-[11px] font-medium text-gray-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+              <span>신호 대기 중</span>
+            </div>
+          )}
           <div className="flex items-center gap-0.5">
             {onEdit && (
               <button

@@ -135,12 +135,26 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             )
             session_cache.touch(user_id)
 
-            # ── 3. 영양제 복용 감지 및 MongoDB 영속화 ───────────
+            # ── 3. 센서 스트리밍 핑(sensor_pulse, 1초 1회) Broadcast ───────────
+            now_ts = datetime.now(timezone.utc)
+            now_sec = now_ts.timestamp()
+            last_pulse = getattr(session, f"last_pulse_{bottle_id}", 0)
+            if (now_sec - last_pulse) >= 1.0:
+                setattr(session, f"last_pulse_{bottle_id}", now_sec)
+                await manager.broadcast(user_id, {
+                    "type": "sensor_pulse",
+                    "payload": {
+                        "bottle_id": bottle_id,
+                        "timestamp": ts.isoformat(),
+                    },
+                    "timestamp": ts.isoformat(),
+                })
+
+            # ── 4. 영양제 복용 감지 및 MongoDB 영속화 ───────────
             from pipeline.imu_state import detect_medication_intake, make_medication_taken_event
             from db.mongo_client import medication_logs
             
             # 복용 감지 중복 방지 (동일 복용 동작 중에는 10초에 1회만 이벤트 발행)
-            now_ts = datetime.now(timezone.utc)
             is_cooldown = (
                 session.last_intake_at is not None and 
                 (now_ts - session.last_intake_at).total_seconds() < 10.0
@@ -149,7 +163,7 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
             if not is_cooldown and detect_medication_intake(session.recent_sensor_window):
                 session.last_intake_at = now_ts
                 intake_event = make_medication_taken_event(bottle_id, timestamp=ts)
-                print(f'[handler] 💊 영양제 복용 감지 확정: {bottle_id} (AccZ={f_acc_z:.2f}, state_deg={state_deg})')
+                print(f'[handler] 약통 복용 감지 확정: {bottle_id} (AccZ={f_acc_z:.2f}, state_deg={state_deg})')
                 await manager.broadcast(user_id, intake_event)
 
                 # MongoDB 복용 이력 자동 영속화
@@ -164,17 +178,18 @@ async def handle_sensor_stream(ws: WebSocket, user_id: str) -> None:
                 except Exception as e:
                     print(f'[handler] MongoDB 저장 실패: {e}')
 
-            # ── 4. IMU 약통 상태 판별 ─────────────────────────────────
+            # ── 5. IMU 약통 상태 판별 ─────────────────────────────────
             prev_state = session.tumbler_state
             new_state = detect_bottle_state(session.recent_sensor_window)
             session.tumbler_state = new_state
 
             if new_state != prev_state:
-                print(f'[handler] {user_id} 상태 전이: {prev_state} → {new_state} '
+                print(f'[handler] {user_id} 상태 전이: {prev_state} -> {new_state} '
                       f'(acc_z={f_acc_z:.3f}, state_deg={state_deg})')
 
             state_event = make_state_event(new_state, prev_state, timestamp=ts)
             if state_event:
+                state_event['payload']['bottle_id'] = bottle_id
                 await manager.broadcast(user_id, state_event)
 
     except WebSocketDisconnect:
