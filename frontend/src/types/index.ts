@@ -18,7 +18,9 @@ export type Bottle = {
   bottle_id: string;
   name: string;
   target_time: string;
+  status?: 'ACTIVE' | 'ARCHIVED';
   created_at?: string;
+  ended_at?: string;
 };
 
 export type MedicationLog = {

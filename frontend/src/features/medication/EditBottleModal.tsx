@@ -49,7 +49,7 @@ export const EditBottleModal: React.FC<EditBottleModalProps> = ({
     setError(null);
 
     try {
-      await registerBottle(bottle.bottle_id, pillName.trim(), targetTime);
+      await registerBottle(bottle.bottle_id, pillName.trim(), targetTime, 'update');
       setIsSubmitting(false);
       onBottleUpdated();
       handleClose();
