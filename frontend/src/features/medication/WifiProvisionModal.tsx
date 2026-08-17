@@ -10,18 +10,23 @@ import {
   IconLock,
   IconEye,
   IconEyeOff,
-  IconAdjustments
+  IconAdjustments,
+  IconCopy,
+  IconPlus,
 } from '@tabler/icons-react';
 
 interface WifiProvisionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRegisterWithDevice?: (deviceId: string) => void;
 }
 
 export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
   isOpen,
   onClose,
+  onRegisterWithDevice,
 }) => {
+  const [isCopied, setIsCopied] = useState(false);
   const [ssid, setSsid] = useState(() => {
     try {
       return localStorage.getItem('last_wifi_ssid') || '';
@@ -57,6 +62,14 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
   if (!isOpen) return null;
 
   const isProcessing = status === 'scanning' || status === 'connecting' || status === 'sending';
+  const isSuccess = status === 'success';
+
+  const handleCopyDeviceId = () => {
+    if (!connectedDeviceName) return;
+    navigator.clipboard.writeText(connectedDeviceName);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   // Step 1: BLE 연결
   const handleConnectBle = async () => {
@@ -66,7 +79,7 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
   // Step 2: Wi-Fi 설정 BLE 전송
   const handleSubmitProvision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!connectedDeviceName || !ssid.trim()) return;
+    if (isSuccess || isProcessing || !connectedDeviceName || !ssid.trim()) return;
     await sendWifiConfig(ssid, password);
   };
 
@@ -88,7 +101,7 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-2xs p-4 animate-fade-in">
       <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full transition-all duration-200 relative">
-        
+
         {/* Header */}
         <div className="px-5 py-4 bg-white border-b border-gray-100 flex items-center justify-between rounded-t-xl">
           <div className="flex items-center gap-3">
@@ -119,7 +132,7 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
               <div>
                 <p className="font-semibold">Web Bluetooth 미지원 브라우저</p>
                 <p className="text-[11px] mt-0.5 text-amber-700">
-                  현재 사용 중인 브라우저는 Web Bluetooth API를 지원하지 않습니다. 
+                  현재 사용 중인 브라우저는 Web Bluetooth API를 지원하지 않습니다.
                   <strong className="ml-1 font-semibold">Chrome, Edge 또는 Android Chrome</strong>을 사용해 주세요.
                 </p>
               </div>
@@ -168,16 +181,28 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
               ) : (
                 /* Step 2: Wi-Fi 설정 전송 폼 */
                 <form onSubmit={handleSubmitProvision} className="space-y-3.5">
-                  {/* Connected Device Badge */}
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs text-emerald-800 font-semibold">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>연결된 기기: <strong className="font-mono">{connectedDeviceName}</strong></span>
+                  {/* Connected Device Badge - 약통 등록 버튼 색상(Teal 톤)과 통일 */}
+                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-teal-900 font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                      <span>연결된 기기: <strong className="font-mono text-teal-950 font-bold">{connectedDeviceName}</strong></span>
+                      <button
+                        type="button"
+                        onClick={handleCopyDeviceId}
+                        className="p-1 hover:bg-teal-100/80 rounded text-teal-700 hover:text-teal-900 transition-colors cursor-pointer flex items-center gap-0.5"
+                        title="기기 ID 클립보드 복사"
+                      >
+                        {isCopied ? (
+                          <IconCheck size={14} className="text-teal-600 font-bold" />
+                        ) : (
+                          <IconCopy size={14} />
+                        )}
+                      </button>
                     </div>
                     <button
                       type="button"
                       onClick={disconnectBleDevice}
-                      className="!text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                      className="!text-[11px] font-semibold text-teal-700 hover:text-teal-900 hover:underline cursor-pointer"
                     >
                       다른 기기 선택
                     </button>
@@ -232,47 +257,68 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
 
                   {/* Status Banner */}
                   {statusMessage && (
-                    <div
-                      className={`p-2.5 rounded-md !text-xs flex items-start gap-2 border transition-all ${
-                        status === 'success'
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                          : status === 'error'
+                    status === 'success' ? (
+                      <div className="pt-0.5 pb-0 !text-xs flex items-center justify-center gap-1.5 text-indigo-600 font-semibold text-center animate-fade-in">
+                        <IconCheck size={15} className="text-indigo-600 shrink-0" />
+                        <span>{statusMessage}</span>
+                      </div>
+                    ) : (
+                      <div
+                        className={`p-2.5 rounded-md !text-xs flex items-start gap-2 border transition-all ${status === 'error'
                           ? 'bg-rose-50 border-rose-200 text-rose-800'
                           : 'bg-indigo-50 border-indigo-200 text-indigo-800'
-                      }`}
-                    >
-                      {isProcessing && <IconLoader2 size={15} className="animate-spin shrink-0 text-indigo-600 mt-0.5" />}
-                      {status === 'success' && <IconCheck size={15} className="shrink-0 text-emerald-600 mt-0.5" />}
-                      {status === 'error' && <IconAlertCircle size={15} className="shrink-0 text-rose-600 mt-0.5" />}
-                      <div className="flex-1">
-                        <p className="font-semibold">{statusMessage}</p>
-                        {error && <p className="mt-0.5 text-[11px] opacity-90 font-mono">{error}</p>}
+                          }`}
+                      >
+                        {isProcessing && <IconLoader2 size={15} className="animate-spin shrink-0 text-indigo-600 mt-0.5" />}
+                        {status === 'error' && <IconAlertCircle size={15} className="shrink-0 text-rose-600 mt-0.5" />}
+                        <div className="flex-1">
+                          <p className="font-semibold">{statusMessage}</p>
+                          {error && <p className="mt-0.5 text-[11px] opacity-90 font-mono">{error}</p>}
+                        </div>
                       </div>
-                    </div>
+                    )
                   )}
 
-                  {/* Submit Button */}
+                  {/* Submit Button - 성공 시 상단 간격을 -mt-2로 밀착 */}
                   <button
                     type="submit"
-                    disabled={isProcessing || !ssid.trim()}
-                    className={`w-full py-2 px-3 rounded-md !text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
-                      isProcessing || !ssid.trim()
-                        ? 'bg-gray-300 shadow-none cursor-not-allowed text-gray-500'
-                        : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'
-                    }`}
+                    disabled={isProcessing || isSuccess || !ssid.trim()}
+                    className={`w-full py-2 px-3 rounded-md !text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all shadow-xs ${isSuccess ? '-mt-2' : ''} ${isProcessing || !ssid.trim()
+                      ? 'bg-gray-300 shadow-none cursor-not-allowed text-gray-500'
+                      : isSuccess
+                        ? 'bg-indigo-300/80 text-white shadow-none cursor-not-allowed'
+                        : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 cursor-pointer'
+                      }`}
                   >
                     {isProcessing ? (
                       <>
-                        <IconLoader2 size={15} className="animate-spin" />
+                        <IconLoader2 size={16} className="animate-spin" />
                         <span>전송 처리 중...</span>
+                      </>
+                    ) : isSuccess ? (
+                      <>
+                        <IconCheck size={16} />
+                        <span>Wi-Fi 설정 전송 완료</span>
                       </>
                     ) : (
                       <>
-                        <IconCheck size={15} />
+                        <IconCheck size={16} />
                         <span>ESP32 기기로 Wi-Fi 설정 전송</span>
                       </>
                     )}
                   </button>
+
+                  {/* Wi-Fi 전송 성공 시 원클릭 약통 추가 연동 버튼 노출 */}
+                  {isSuccess && onRegisterWithDevice && connectedDeviceName && (
+                    <button
+                      type="button"
+                      onClick={() => onRegisterWithDevice(connectedDeviceName)}
+                      className="w-full py-2 px-3 rounded-md !text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:bg-teal-800 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs animate-fade-in border border-teal-700 mt-2"
+                    >
+                      <IconPlus size={15} />
+                      <span>이 기기로 약통 추가</span>
+                    </button>
+                  )}
                 </form>
               )}
             </div>

@@ -42,7 +42,7 @@ const tabLabel: React.CSSProperties = {
 };
 
 const STATUS_BADGE = {
-  connected: { color: 'green', label: '실시간 연동 완료' },
+  connected: { color: 'blue', label: '실시간 연동 완료' },
   connecting: { color: 'yellow', label: '연결 중...' },
   reconnecting: { color: 'yellow', label: '재연결 중...' },
   disconnected: { color: 'gray', label: '연결 대기' },
@@ -70,6 +70,7 @@ function App() {
 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false);
   const [isAddBottleModalOpen, setIsAddBottleModalOpen] = useState(false);
+  const [prefilledDeviceId, setPrefilledDeviceId] = useState<string>('');
   const [editTargetBottle, setEditTargetBottle] = useState<Bottle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -228,7 +229,7 @@ function App() {
             <h1 className="text-2xl font-bold text-gray-800">Hands-Free Med Tracker</h1>
             <Badge color={badge.color} variant="light">{badge.label}</Badge>
           </div>
-          
+
           {/* 상단 기기 Wi-Fi/BLE 프로비저닝 세팅 버튼 */}
           <button
             type="button"
@@ -244,16 +245,26 @@ function App() {
         <WifiProvisionModal
           isOpen={isWifiModalOpen}
           onClose={() => setIsWifiModalOpen(false)}
+          onRegisterWithDevice={(deviceId) => {
+            setIsWifiModalOpen(false);
+            setPrefilledDeviceId(deviceId);
+            setIsAddBottleModalOpen(true);
+          }}
         />
 
         {/* 2. 소프트웨어 약통 신규 등록 모달 */}
         <AddBottleModal
           isOpen={isAddBottleModalOpen}
-          onClose={() => setIsAddBottleModalOpen(false)}
+          onClose={() => {
+            setIsAddBottleModalOpen(false);
+            setPrefilledDeviceId('');
+          }}
           onBottleAdded={() => {
             loadData();
+            setPrefilledDeviceId('');
           }}
           existingBottleCount={bottles.length}
+          initialBottleId={prefilledDeviceId}
         />
 
         {/* 3. 약통 정보 수정 모달 */}

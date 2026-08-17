@@ -113,7 +113,13 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
         if (deviceRef.current === device) {
           deviceRef.current = null;
           gattServerRef.current = null;
-          setConnectedDeviceName(null);
+          // 전송 성공(success) 상태일 때는 UI 표시를 위해 connectedDeviceName을 유지함
+          setStatus((prevStatus) => {
+            if (prevStatus !== 'success') {
+              setConnectedDeviceName(null);
+            }
+            return prevStatus;
+          });
         }
       });
 
@@ -188,12 +194,14 @@ export function useWebBluetooth(): UseWebBluetoothReturn {
       console.log('[BLE Step 4 Complete] Data write successfully finished!');
 
       setStatus('success');
-      setStatusMessage('설정이 성공적으로 전송되었습니다! ESP32 기기가 새로운 설정으로 재부팅됩니다.');
+      setStatusMessage('설정이 성공적으로 전송되었습니다! ESP32 기기가 Wi-Fi로 재접속 중입니다.');
 
-      // 1.5초 후 명시적 세션 해제
-      setTimeout(() => {
-        disconnectBleDevice();
-      }, 1500);
+      // GATT 세션만 정숙하게 해제 (기기 이름 상태는 유지하여 성공 화면 표시)
+      try {
+        if (gattServerRef.current && gattServerRef.current.connected) {
+          gattServerRef.current.disconnect();
+        }
+      } catch (_) { }
 
       return true;
     } catch (err: any) {

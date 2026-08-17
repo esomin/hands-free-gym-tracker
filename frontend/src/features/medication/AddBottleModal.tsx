@@ -21,6 +21,7 @@ interface AddBottleModalProps {
   onClose: () => void;
   onBottleAdded: (newBottle: Bottle) => void;
   existingBottleCount?: number;
+  initialBottleId?: string;
 }
 
 export const AddBottleModal: React.FC<AddBottleModalProps> = ({
@@ -28,14 +29,24 @@ export const AddBottleModal: React.FC<AddBottleModalProps> = ({
   onClose,
   onBottleAdded,
   existingBottleCount = 2,
+  initialBottleId,
 }) => {
   const defaultBottleId = `SmartPillBox_0${existingBottleCount + 1}`;
-  const [bottleId, setBottleId] = useState(defaultBottleId);
+  const [bottleId, setBottleId] = useState(initialBottleId || defaultBottleId);
   const [pillName, setPillName] = useState('');
   const [targetTime, setTargetTime] = useState('21:00');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // initialBottleId 변경 시 bottleId 업데이트
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialBottleId) {
+        setBottleId(initialBottleId);
+      }
+    }
+  }, [isOpen, initialBottleId]);
 
   // 중복 발생 시 안내 모달 데이터
   const [conflictBottle, setConflictBottle] = useState<Bottle | null>(null);
