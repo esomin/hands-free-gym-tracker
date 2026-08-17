@@ -80,6 +80,8 @@ const WheelColumn: React.FC<{
                     scrollSnapType: 'y mandatory',
                     paddingTop: (WHEEL_HEIGHT - ITEM_HEIGHT) / 2,
                     paddingBottom: (WHEEL_HEIGHT - ITEM_HEIGHT) / 2,
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
                 }}
             >
                 {items.map((it) => {
@@ -162,8 +164,8 @@ export const TimePicker: React.FC<TimePickerProps> = ({
                                 key={p.key}
                                 onClick={() => applyPreset(p.time)}
                                 className={`py-1.5 rounded-md border !text-xs font-semibold transition-colors cursor-pointer ${active
-                                        ? 'bg-teal-500 border-teal-500 text-white'
-                                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                                    ? 'bg-teal-500 border-teal-500 text-white'
+                                    : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
                                     }`}
                             >
                                 {p.label}

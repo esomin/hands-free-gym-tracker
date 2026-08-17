@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { useWebBluetooth } from '../../hooks/useWebBluetooth';
-import { registerBottle } from '../../api/client';
-import type { Bottle } from '../../types';
-import { TimePicker, PRESETS } from './Timepicker';
 import {
   IconWifi,
   IconBluetooth,
@@ -13,26 +10,18 @@ import {
   IconLock,
   IconEye,
   IconEyeOff,
-  IconAdjustments,
-  IconPill,
-  IconClock,
-  IconChevronDown
+  IconAdjustments
 } from '@tabler/icons-react';
 
 interface WifiProvisionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onBottleRegistered?: (newBottle: Bottle) => void;
 }
 
 export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
   isOpen,
   onClose,
-  onBottleRegistered,
 }) => {
-  const [pillName, setPillName] = useState('');
-  const [targetTime, setTargetTime] = useState('09:00');
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [ssid, setSsid] = useState(() => {
     try {
       return localStorage.getItem('last_wifi_ssid') || '';
@@ -69,32 +58,16 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
 
   const isProcessing = status === 'scanning' || status === 'connecting' || status === 'sending';
 
-  // Step 1: BLE 연결 시작
+  // Step 1: BLE 연결
   const handleConnectBle = async () => {
     await connectBleDevice();
   };
 
-  // Step 2: Wi-Fi 설정 전송 및 DB 등록
-  const handleSubmitProvisionAndRegister = async (e: React.FormEvent) => {
+  // Step 2: Wi-Fi 설정 BLE 전송
+  const handleSubmitProvision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!connectedDeviceName) return;
-    if (!pillName.trim() || !ssid.trim()) return;
-
-    // 1. BLE로 Wi-Fi 전송
-    const isWifiSent = await sendWifiConfig(ssid, password);
-    if (!isWifiSent) return;
-
-    // 2. 백엔드 DB에 신규 약통 등록 (POST /api/bottles)
-    try {
-      const newBottle = await registerBottle(connectedDeviceName, pillName.trim(), targetTime);
-      console.log('[Bottle Registered]', newBottle);
-
-      if (onBottleRegistered) {
-        onBottleRegistered(newBottle);
-      }
-    } catch (err: any) {
-      console.error('[Bottle Registration Error]', err);
-    }
+    if (!connectedDeviceName || !ssid.trim()) return;
+    await sendWifiConfig(ssid, password);
   };
 
   const handleSendWs = async () => {
@@ -114,22 +87,23 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-2xs p-4 animate-fade-in">
-      <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full overflow-hidden transition-all duration-200">
+      <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-md w-full transition-all duration-200 relative">
         
         {/* Header */}
-        <div className="px-5 py-4 bg-white border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-4 bg-white border-b border-gray-100 flex items-center justify-between rounded-t-xl">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-              <IconBluetooth size={20} />
+              <IconWifi size={20} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-800">새 약통 페어링 및 등록</h2>
-              <p className="text-[11px] text-gray-500 font-normal">BLE로 약통을 먼저 연결하고 복용 정보를 등록합니다</p>
+              <h2 className="text-sm font-bold text-gray-800">기기 Wi-Fi / BLE 설정</h2>
+              <p className="text-[11px] text-gray-500 font-normal">ESP32 약통 기기의 Wi-Fi 자격 증명을 BLE로 설정합니다</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer !text-xs"
             aria-label="닫기"
           >
             <IconX size={18} />
@@ -159,9 +133,9 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
                     <IconBluetooth size={28} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-gray-800">1단계: 새 약통 기기 선택 및 연결</h3>
+                    <h3 className="text-sm font-bold text-gray-800">1단계: ESP32 약통 기기 탐색 및 연결</h3>
                     <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
-                      새 ESP32 약통 기기의 전원을 켜고 아래 버튼을 눌러 블루투스로 먼저 연결해 주세요.
+                      ESP32 약통 기기의 전원을 켜고 아래 버튼을 눌러 블루투스로 연결해 주세요.
                     </p>
                   </div>
 
@@ -192,8 +166,8 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
                   </button>
                 </div>
               ) : (
-                /* Step 2: 기기 연결 성공 후 정보 및 Wi-Fi 입력 폼 */
-                <form onSubmit={handleSubmitProvisionAndRegister} className="space-y-3.5">
+                /* Step 2: Wi-Fi 설정 전송 폼 */
+                <form onSubmit={handleSubmitProvision} className="space-y-3.5">
                   {/* Connected Device Badge */}
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-emerald-800 font-semibold">
@@ -207,100 +181,6 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
                     >
                       다른 기기 선택
                     </button>
-                  </div>
-
-                  {/* 약 정보 입력 (약 이름 & 목표 복용 시각 나란히 배치) */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block !text-xs font-semibold text-gray-700 mb-0.5">
-                        약 이름 <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400">
-                          <IconPill size={14} />
-                        </div>
-                        <input
-                          type="text"
-                          required
-                          placeholder="예: 취침 전 혈압약"
-                          value={pillName}
-                          onChange={(e) => setPillName(e.target.value)}
-                          disabled={isProcessing}
-                          className="w-full pl-7 pr-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md !text-xs font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <label className="block !text-xs font-semibold text-gray-700">
-                          목표 복용 시각
-                        </label>
-                        {/* 빠른 선택 프리셋 버튼 */}
-                        <div className="flex items-center gap-0.5">
-                          {PRESETS.map((p) => {
-                            const active = targetTime === p.time;
-                            return (
-                              <button
-                                type="button"
-                                key={p.key}
-                                onClick={() => setTargetTime(p.time)}
-                                className={`px-1 py-0.5 rounded border !text-[10px] font-semibold transition-colors cursor-pointer ${
-                                  active
-                                    ? 'bg-teal-500 border-teal-500 text-white'
-                                    : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 hover:border-gray-300'
-                                }`}
-                              >
-                                {p.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowTimePicker(!showTimePicker)}
-                        disabled={isProcessing}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-md !text-xs font-medium text-gray-800 hover:bg-white hover:border-indigo-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 transition-all font-mono flex items-center justify-between cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2 text-teal-600">
-                          <IconClock size={14} />
-                          <span className="font-bold text-teal-700">{targetTime}</span>
-                        </div>
-                        <IconChevronDown size={14} className="text-gray-400" />
-                      </button>
-
-                      {/* TimePicker 휠 전용 드롭다운 팝오버 */}
-                      {showTimePicker && (
-                        <div className="absolute right-0 top-full mt-1 z-50 shadow-xl rounded-xl animate-fade-in border border-gray-200 bg-white p-2.5 w-44">
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setShowTimePicker(false)}
-                              className="absolute -top-1 -right-1 p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 z-20 cursor-pointer"
-                            >
-                              <IconX size={14} />
-                            </button>
-                            <TimePicker
-                              value={targetTime}
-                              onChange={(t) => setTargetTime(t)}
-                              showPresets={false}
-                              showHeader={false}
-                              className="w-full bg-white"
-                            />
-                            <div className="mt-2 pt-1.5 border-t border-gray-100 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setShowTimePicker(false)}
-                                className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-md font-semibold !text-xs shadow-2xs cursor-pointer"
-                              >
-                                선택 완료
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Wi-Fi 설정 입력 */}
@@ -374,9 +254,9 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    disabled={isProcessing || !pillName.trim() || !ssid.trim()}
+                    disabled={isProcessing || !ssid.trim()}
                     className={`w-full py-2 px-3 rounded-md !text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
-                      isProcessing || !pillName.trim() || !ssid.trim()
+                      isProcessing || !ssid.trim()
                         ? 'bg-gray-300 shadow-none cursor-not-allowed text-gray-500'
                         : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'
                     }`}
@@ -384,12 +264,12 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
                     {isProcessing ? (
                       <>
                         <IconLoader2 size={15} className="animate-spin" />
-                        <span>전송 및 약통 등록 처리 중...</span>
+                        <span>전송 처리 중...</span>
                       </>
                     ) : (
                       <>
                         <IconCheck size={15} />
-                        <span>설정 전송 및 약통 등록 완료</span>
+                        <span>ESP32 기기로 Wi-Fi 설정 전송</span>
                       </>
                     )}
                   </button>
@@ -454,9 +334,10 @@ export const WifiProvisionModal: React.FC<WifiProvisionModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+        <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 rounded-b-xl">
           <span>기기 식별 패턴: <strong className="text-gray-700 font-mono">SmartPillBox_*</strong></span>
           <button
+            type="button"
             onClick={handleClose}
             className="hover:underline font-semibold text-gray-600 cursor-pointer !text-xs"
           >

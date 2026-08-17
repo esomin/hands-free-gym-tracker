@@ -35,6 +35,12 @@ export async function registerBottle(bottleId: string, name: string, targetTime:
   });
 }
 
+export async function deleteBottle(bottleId: string): Promise<{ deleted: boolean; bottle_id: string }> {
+  return apiFetch<{ deleted: boolean; bottle_id: string }>(`/api/bottles/${bottleId}`, {
+    method: 'DELETE',
+  });
+}
+
 // ── 복용 이력 & 순응도 API ──────────────────────────────────────────────────────
 
 export async function fetchMedicationLogs(bottleId?: string): Promise<MedicationLog[]> {

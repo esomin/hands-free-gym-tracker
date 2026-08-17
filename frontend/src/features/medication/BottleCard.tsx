@@ -1,11 +1,13 @@
 import React from 'react';
 import type { Bottle, BottleState } from '../../types';
+import { IconTrash } from '@tabler/icons-react';
 
 interface BottleCardProps {
   bottle: Bottle;
   isTakenToday: boolean;
   currentState?: BottleState;
   lastTakenTime?: string;
+  onDelete?: (bottleId: string, bottleName: string) => void;
 }
 
 export const BottleCard: React.FC<BottleCardProps> = ({
@@ -13,6 +15,7 @@ export const BottleCard: React.FC<BottleCardProps> = ({
   isTakenToday,
   currentState = 'idle',
   lastTakenTime,
+  onDelete,
 }) => {
   const isPouring = currentState === 'pouring';
   const isMoving = currentState === 'moving';
@@ -44,11 +47,24 @@ export const BottleCard: React.FC<BottleCardProps> = ({
   }
 
   return (
-    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3.5 hover:border-teal-200 transition-all duration-200">
+    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3.5 hover:border-teal-200 transition-all duration-200 relative group">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-gray-500 bg-gray-200/70 px-2 py-0.5 rounded">
-          {bottle.bottle_id}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-gray-500 bg-gray-200/70 px-2 py-0.5 rounded">
+            {bottle.bottle_id}
+          </span>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(bottle.bottle_id, bottle.name)}
+              className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer opacity-70 group-hover:opacity-100 !text-xs"
+              title="약통 등록 해제"
+              aria-label="약통 등록 해제"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
         {statusBadge}
       </div>
 
