@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Bottle, BottleState } from '../../types';
-import { IconTrash } from '@tabler/icons-react';
+import { IconX, IconPencil } from '@tabler/icons-react';
 
 interface BottleCardProps {
   bottle: Bottle;
@@ -8,6 +8,7 @@ interface BottleCardProps {
   currentState?: BottleState;
   lastTakenTime?: string;
   onDelete?: (bottleId: string, bottleName: string) => void;
+  onEdit?: (bottle: Bottle) => void;
 }
 
 export const BottleCard: React.FC<BottleCardProps> = ({
@@ -16,6 +17,7 @@ export const BottleCard: React.FC<BottleCardProps> = ({
   currentState = 'idle',
   lastTakenTime,
   onDelete,
+  onEdit,
 }) => {
   const isPouring = currentState === 'pouring';
   const isMoving = currentState === 'moving';
@@ -53,17 +55,30 @@ export const BottleCard: React.FC<BottleCardProps> = ({
           <span className="text-xs font-mono text-gray-500 bg-gray-200/70 px-2 py-0.5 rounded">
             {bottle.bottle_id}
           </span>
-          {onDelete && (
-            <button
-              type="button"
-              onClick={() => onDelete(bottle.bottle_id, bottle.name)}
-              className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer opacity-70 group-hover:opacity-100 !text-xs"
-              title="약통 등록 해제"
-              aria-label="약통 등록 해제"
-            >
-              <IconTrash size={14} />
-            </button>
-          )}
+          <div className="flex items-center gap-0.5">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(bottle)}
+                className="p-1 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded transition-all cursor-pointer opacity-0 group-hover:opacity-100 !text-xs"
+                title="약통 정보 수정"
+                aria-label="약통 정보 수정"
+              >
+                <IconPencil size={14} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(bottle.bottle_id, bottle.name)}
+                className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer opacity-0 group-hover:opacity-100 !text-xs"
+                title="약통 등록 해제"
+                aria-label="약통 등록 해제"
+              >
+                <IconX size={14} />
+              </button>
+            )}
+          </div>
         </div>
         {statusBadge}
       </div>

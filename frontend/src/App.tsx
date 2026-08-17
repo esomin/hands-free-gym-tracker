@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Badge } from '@mantine/core';
 import { useWebSocket } from './hooks/useWebSocket';
 import { fetchBottles, fetchMedicationLogs, fetchAdherenceStats, deleteBottle } from './api/client';
@@ -9,6 +9,7 @@ import { AdherenceDashboard } from './features/medication/AdherenceDashboard';
 import { MedicationHistoryTab } from './features/medication/MedicationHistoryTab';
 import { WifiProvisionModal } from './features/medication/WifiProvisionModal';
 import { AddBottleModal } from './features/medication/AddBottleModal';
+import { EditBottleModal } from './features/medication/EditBottleModal';
 import { IconWifi, IconPlus, IconTrash, IconX, IconAlertCircle, IconLoader2 } from '@tabler/icons-react';
 
 const WS_URL = 'ws://localhost:8000/ws/user-1';
@@ -61,12 +62,23 @@ function App() {
 
   const [isWifiModalOpen, setIsWifiModalOpen] = useState(false);
   const [isAddBottleModalOpen, setIsAddBottleModalOpen] = useState(false);
+  const [editTargetBottle, setEditTargetBottle] = useState<Bottle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [logs, setLogs] = useState<MedicationLog[]>([]);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
+
+  // 목표 복용 시각(target_time) 오름차순 ➔ 동일 시각일 경우 등록이 오래된 순서(최초 등록 순) 유지
+  const sortedBottles = useMemo(() => {
+    const indexMap = new Map(bottles.map((b, i) => [b.bottle_id, i]));
+    return [...bottles].sort((a, b) => {
+      const timeDiff = a.target_time.localeCompare(b.target_time);
+      if (timeDiff !== 0) return timeDiff;
+      return (indexMap.get(a.bottle_id) ?? 0) - (indexMap.get(b.bottle_id) ?? 0);
+    });
+  }, [bottles]);
 
   // 실시간 약통별 복용 완료 여부 및 현재 각도 상태
   const [takenBottles, setTakenBottles] = useState<Record<string, boolean>>({});
@@ -217,6 +229,16 @@ function App() {
           existingBottleCount={bottles.length}
         />
 
+        {/* 3. 약통 정보 수정 모달 */}
+        <EditBottleModal
+          isOpen={!!editTargetBottle}
+          bottle={editTargetBottle}
+          onClose={() => setEditTargetBottle(null)}
+          onBottleUpdated={() => {
+            loadData();
+          }}
+        />
+
         {/* 3. 약통 등록 해제(삭제) 확인 대화상자 */}
         {deleteTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-2xs p-4 animate-fade-in">
@@ -301,13 +323,14 @@ function App() {
                 </div>
 
                 <div className="space-y-3">
-                  {bottles.map((bottle) => (
+                  {sortedBottles.map((bottle) => (
                     <BottleCard
                       key={bottle.bottle_id}
                       bottle={bottle}
                       isTakenToday={!!takenBottles[bottle.bottle_id]}
                       currentState={bottleStates[bottle.bottle_id] || 'idle'}
                       lastTakenTime={lastTakenTimes[bottle.bottle_id]}
+                      onEdit={(b) => setEditTargetBottle(b)}
                       onDelete={(id, name) => setDeleteTarget({ id, name })}
                     />
                   ))}
